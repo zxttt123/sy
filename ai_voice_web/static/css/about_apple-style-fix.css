@@ -1,0 +1,188 @@
+/* 苹果风格优化补充样式 */
+
+/* 细节优化 */
+body {
+  transition: background-color 0.5s ease;
+}
+
+/* 定义强调色变量 */
+:root {
+  --accent-color: #ff6100;
+  --accent-dark: #e65800;
+  --accent-light: #ff7a28;
+  --transition-appleEaseOut: cubic-bezier(0.33, 1, 0.68, 1);
+  --transition-appleEaseIn: cubic-bezier(0.32, 0, 0.67, 0);
+  --transition-appleEaseInOut: cubic-bezier(0.65, 0, 0.35, 1);
+  --transition-appleEaseOutBack: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 更加精致的按钮样式 */
+.btn {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  padding: 10px 22px;
+  border-radius: 980px;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.btn-primary {
+  background: linear-gradient(to bottom, #0082f0, #0071e3);
+}
+
+.btn-primary:active {
+  background: linear-gradient(to bottom, #0066cc, #0058b9);
+  transform: scale(0.96);
+}
+
+/* 注册按钮特殊样式 - 使用强调色 */
+.btn-cta {
+  background: linear-gradient(to bottom, var(--accent-light), var(--accent-color));
+  color: white;
+  border: none;
+  font-weight: 600;
+  padding: 12px 28px;
+  box-shadow: 0 4px 12px rgba(255, 97, 0, 0.2);
+}
+
+.btn-cta:hover {
+  background: linear-gradient(to bottom, var(--accent-color), var(--accent-dark));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(255, 97, 0, 0.3);
+}
+
+.btn-cta:active {
+  background: linear-gradient(to bottom, var(--accent-dark), var(--accent-dark));
+  transform: scale(0.96);
+}
+
+/* CTA区域的按钮特别样式 */
+.cta .btn-cta {
+  font-size: 17px;
+  padding: 14px 32px;
+}
+
+/* 改进按钮焦点状态 */
+.btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.3);
+}
+
+.btn-cta:focus {
+  box-shadow: 0 0 0 3px rgba(255, 97, 0, 0.3);
+}
+
+/* 苹果风格的薄边框 */
+.feature-card, .demo-card, .about-image img {
+  border: 0.5px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 苹果风格的光感纹理 */
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at top center, rgba(255, 255, 255, 0.5), transparent 60%);
+  pointer-events: none;
+}
+
+/* 改善文本渲染 */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+p {
+  letter-spacing: -0.01em;
+}
+
+/* 更好的导航栏效果 */
+header {
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+}
+
+.nav-links a {
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+/* 更细腻的卡片悬停效果 */
+.feature-card {
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+              box-shadow 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  will-change: transform, box-shadow;
+}
+
+/* 改进的数字统计效果 */
+.stat h3 {
+  background: linear-gradient(to right, #0071e3, #47a9ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 改进图标圆圈动画 */
+.icon-circle {
+  transition: all 0.4s var(--transition-appleEaseOutBack);
+}
+
+/* 浮动元素和波浪线调整 */
+.floating-elements {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.float-element {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 0.5px solid rgba(0, 0, 0, 0.05);
+}
+
+/* 确保波浪线不会遮挡浮动元素 */
+.lower-wave {
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* 黑暗模式适配 */
+@media (prefers-color-scheme: dark) {
+  .feature-card, .demo-card, .about-image img {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  header {
+    border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .hero::before {
+    background: radial-gradient(ellipse at top center, rgba(50, 50, 70, 0.3), transparent 60%);
+  }
+}
+
+/* 响应式调整 */
+@media screen and (max-height: 750px) {
+  /* 在较矮的屏幕上，调整浮动元素位置 */
+  .float-element:nth-child(3) {
+    bottom: 30%;
+  }
+}
+
+/* 改进的响应式设计 */
+@media screen and (max-width: 768px) {
+  .btn {
+    padding: 8px 18px;
+    font-size: 14px;
+  }
+  
+  .icon-circle {
+    width: 70px;
+    height: 70px;
+    font-size: 24px;
+  }
+  
+  .btn-cta {
+    padding: 10px 24px;
+    font-size: 15px;
+  }
+}
