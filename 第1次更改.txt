@@ -1,0 +1,1614 @@
+ceng10086: 增加如下功能：
+
+声音置换及加字幕功能：导入一段音视频，通过更换声音实现变声，输出带有同步字幕的音视频。
+
+具体要求：可以使用预置声音以及用户上传的声音；页面风格与其他页面一致。
+
+参考：语音转文字可以使用whisper。
+
+GitHub Copilot: # 解决方案：添加声音置换及加字幕功能
+
+我将通过以下步骤添加声音置换及加字幕功能：
+
+1. 添加一个新的工具函数文件用于语音识别和音视频处理
+2. 修改text_splitter.py文件以添加新的音视频处理函数
+3. 在主页中添加新的功能区块
+4. 创建新的路由处理声音置换和字幕生成请求
+
+## 步骤详细说明
+
+### 1. 首先，创建一个新的工具函数文件用于语音识别
+
+创建一个新的工具文件，处理语音识别和视频字幕添加。
+
+### 2. 修改text_splitter.py添加视频处理功能
+
+扩展现有的text_splitter.py文件，添加处理视频文件、提取音频、合成带字幕视频的功能。
+
+### 3. 在main.js中添加处理声音置换的函数
+
+添加JavaScript函数处理上传视频、声音置换请求、进度追踪和结果下载。
+
+### 4. 在主页面添加声音置换功能区块
+
+在index.html中添加声音置换功能区，保持与现有样式一致。
+
+### 5. 创建新的路由处理声音置换请求
+
+添加API路由处理声音置换请求。
+
+## 代码修改
+
+### [text_splitter.py](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_server/utils/text_splitter.py)
+
+添加视频处理相关函数：
+
+````python
+"""
+文本分段处理工具，用于长文本语音合成
+"""
+
+import re
+import logging
+import tempfile
+import os
+import numpy as np
+import soundfile as sf
+from scipy import signal
+from typing import List, Dict, Any, Optional
+import subprocess
+import json
+
+logger = logging.getLogger(__name__)
+
+# ...existing code...
+
+def get_audio_from_video(video_path: str, output_audio_path: Optional[str] = None) -> str:
+    """
+    从视频文件中提取音频
+    
+    参数:
+        video_path: 视频文件路径
+        output_audio_path: 输出音频文件路径，如果为None则自动生成
+    
+    返回:
+        输出的音频文件路径
+    """
+    if not os.path.exists(video_path):
+        raise FileNotFoundError(f"视频文件不存在: {video_path}")
+    
+    if not output_audio_path:
+        # 创建临时文件作为输出
+        fd, output_audio_path = tempfile.mkstemp(suffix='.wav')
+        os.close(fd)
+    
+    try:
+        # 使用ffmpeg提取音频
+        cmd = [
+            "ffmpeg",
+            "-i", video_path,
+            "-vn",  # 不处理视频
+            "-acodec", "pcm_s16le",  # 输出为16位PCM
+            "-ar", "16000",  # 采样率设为16kHz
+            "-ac", "1",  # 单声道
+            "-y",  # 覆盖已有文件
+            output_audio_path
+        ]
+        
+        logger.info(f"执行命令: {' '.join(cmd)}")
+        result = subprocess.run(cmd, check=True, capture_output=True)
+        
+        if os.path.exists(output_audio_path) and os.path.getsize(output_audio_path) > 0:
+            logger.info(f"成功从视频提取音频: {output_audio_path}")
+            return output_audio_path
+        else:
+            raise RuntimeError("提取音频失败，输出文件不存在或为空")
+            
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode('utf-8', errors='replace') if e.stderr else str(e)
+        logger.error(f"提取音频失败: {error_msg}")
+        raise RuntimeError(f"提取音频失败: {error_msg}")
+    except Exception as e:
+        logger.error(f"提取音频过程中发生错误: {str(e)}")
+        raise
+
+def add_subtitles_to_video(video_path: str, subtitles_data: List[Dict[str, Any]], 
+                           output_path: Optional[str] = None, font_size: int = 24, 
+                           font_color: str = "white", border_color: str = "black",
+                           position: str = "bottom") -> str:
+    """
+    为视频添加字幕
+    
+    参数:
+        video_path: 视频文件路径
+        subtitles_data: 字幕数据，格式为[{"start": 开始时间(秒), "end": 结束时间(秒), "text": "字幕文本"}, ...]
+        output_path: 输出视频路径，如果为None则自动生成
+        font_size: 字体大小
+        font_color: 字体颜色
+        border_color: 边框颜色
+        position: 字幕位置，可选 "bottom" 或 "top"
+        
+    返回:
+        输出视频的路径
+    """
+    if not os.path.exists(video_path):
+        raise FileNotFoundError(f"视频文件不存在: {video_path}")
+        
+    if not subtitles_data:
+        raise ValueError("字幕数据不能为空")
+    
+    if not output_path:
+        # 创建临时文件用于输出
+        fd, output_path = tempfile.mkstemp(suffix='.mp4')
+        os.close(fd)
+    
+    try:
+        # 首先创建SRT格式的字幕文件
+        fd, srt_path = tempfile.mkstemp(suffix='.srt')
+        os.close(fd)
+        
+        with open(srt_path, 'w', encoding='utf-8') as f:
+            for i, item in enumerate(subtitles_data, 1):
+                start_time = item['start']
+                end_time = item['end']
+                text = item['text']
+                
+                # 转换为SRT格式的时间戳 HH:MM:SS,mmm
+                start_str = convert_seconds_to_srt_time(start_time)
+                end_str = convert_seconds_to_srt_time(end_time)
+                
+                f.write(f"{i}\n")
+                f.write(f"{start_str} --> {end_str}\n")
+                f.write(f"{text}\n\n")
+        
+        # 设置字幕位置
+        y_position = "h-th-60" if position == "bottom" else "10"
+        
+        # 使用ffmpeg添加字幕
+        cmd = [
+            "ffmpeg",
+            "-i", video_path,
+            "-vf", f"subtitles={srt_path}:force_style='FontName=Arial,FontSize={font_size},PrimaryColour=&H{get_color_code(font_color)},OutlineColour=&H{get_color_code(border_color)},BorderStyle=1,Outline=1,Alignment=2,MarginV={y_position}'",
+            "-c:a", "copy",  # 复制音频流
+            "-y",  # 覆盖已有文件
+            output_path
+        ]
+        
+        logger.info(f"执行命令: {' '.join(cmd)}")
+        result = subprocess.run(cmd, check=True, capture_output=True)
+        
+        # 清理临时字幕文件
+        if os.path.exists(srt_path):
+            os.remove(srt_path)
+            
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            logger.info(f"成功为视频添加字幕: {output_path}")
+            return output_path
+        else:
+            raise RuntimeError("添加字幕失败，输出文件不存在或为空")
+            
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode('utf-8', errors='replace') if e.stderr else str(e)
+        logger.error(f"添加字幕失败: {error_msg}")
+        raise RuntimeError(f"添加字幕失败: {error_msg}")
+    except Exception as e:
+        logger.error(f"添加字幕过程中发生错误: {str(e)}")
+        raise
+
+def convert_seconds_to_srt_time(seconds: float) -> str:
+    """将秒数转换为SRT格式的时间戳 HH:MM:SS,mmm"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = seconds % 60
+    msec = int((seconds - int(seconds)) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{int(seconds):02d},{msec:03d}"
+
+def get_color_code(color_name: str) -> str:
+    """将颜色名称转换为16进制颜色代码"""
+    color_map = {
+        "white": "FFFFFF",
+        "black": "000000",
+        "red": "FF0000",
+        "green": "00FF00",
+        "blue": "0000FF",
+        "yellow": "FFFF00",
+        "cyan": "00FFFF",
+        "magenta": "FF00FF",
+    }
+    return color_map.get(color_name.lower(), "FFFFFF")  # 默认为白色
+
+def replace_audio_in_video(video_path: str, audio_path: str, output_path: Optional[str] = None) -> str:
+    """
+    替换视频中的音频
+    
+    参数:
+        video_path: 视频文件路径
+        audio_path: 新的音频文件路径
+        output_path: 输出视频路径，如果为None则自动生成
+        
+    返回:
+        输出视频的路径
+    """
+    if not os.path.exists(video_path):
+        raise FileNotFoundError(f"视频文件不存在: {video_path}")
+    
+    if not os.path.exists(audio_path):
+        raise FileNotFoundError(f"音频文件不存在: {audio_path}")
+    
+    if not output_path:
+        # 创建临时文件用于输出
+        fd, output_path = tempfile.mkstemp(suffix='.mp4')
+        os.close(fd)
+    
+    try:
+        # 使用ffmpeg替换音频
+        cmd = [
+            "ffmpeg",
+            "-i", video_path,  # 输入视频
+            "-i", audio_path,  # 输入音频
+            "-map", "0:v",     # 使用第一个输入的视频流
+            "-map", "1:a",     # 使用第二个输入的音频流
+            "-c:v", "copy",    # 复制视频编码
+            "-shortest",       # 以最短的流长度为准
+            "-y",              # 覆盖已有文件
+            output_path
+        ]
+        
+        logger.info(f"执行命令: {' '.join(cmd)}")
+        result = subprocess.run(cmd, check=True, capture_output=True)
+        
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            logger.info(f"成功替换视频音频: {output_path}")
+            return output_path
+        else:
+            raise RuntimeError("替换音频失败，输出文件不存在或为空")
+            
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode('utf-8', errors='replace') if e.stderr else str(e)
+        logger.error(f"替换音频失败: {error_msg}")
+        raise RuntimeError(f"替换音频失败: {error_msg}")
+    except Exception as e:
+        logger.error(f"替换音频过程中发生错误: {str(e)}")
+        raise
+````
+
+### [audio_recognition.py](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_server/utils/audio_recognition.py)
+
+创建新的音频识别工具文件：
+
+````python
+
+
+已进行更改。
+
+"""
+音频识别和处理工具，用于语音识别和处理
+"""
+
+import os
+import sys
+import logging
+import subprocess
+import json
+import tempfile
+from typing import List, Dict, Any, Optional, Tuple, Union
+
+import numpy as np
+import ffmpeg
+
+logger = logging.getLogger(__name__)
+
+# 检查是否安装了whisper
+try:
+    import whisper
+    WHISPER_AVAILABLE = True
+except ImportError:
+    WHISPER_AVAILABLE = False
+    logger.warning("未安装whisper模块，语音识别功能将不可用")
+
+class AudioRecognizer:
+    """
+    使用whisper的语音识别模块
+    """
+    _instance = None
+    
+    def __new__(cls, model_size="medium"):
+        if cls._instance is None:
+            cls._instance = super(AudioRecognizer, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+        
+    def __init__(self, model_size="medium"):
+        """
+        初始化语音识别器
+        
+        参数:
+            model_size: 模型大小，可选 tiny, base, small, medium, large
+        """
+        if self._initialized:
+            return
+            
+        if not WHISPER_AVAILABLE:
+            raise ImportError("未安装whisper模块，无法初始化语音识别器")
+            
+        self.model_size = model_size
+        self.model = None
+        self._initialized = True
+        
+    def ensure_model_loaded(self):
+        """确保模型已经加载"""
+        if self.model is None:
+            logger.info(f"加载Whisper {self.model_size}模型...")
+            try:
+                self.model = whisper.load_model(self.model_size)
+                logger.info("Whisper模型加载完成")
+            except Exception as e:
+                logger.error(f"加载Whisper模型失败: {e}")
+                raise
+    
+    def transcribe(self, audio_path: str, language: Optional[str] = "zh") -> Dict[str, Any]:
+        """
+        转录音频文件
+        
+        参数:
+            audio_path: 音频文件路径
+            language: 语言代码，如"zh"表示中文，"en"表示英文，None表示自动检测
+            
+        返回:
+            转录结果，包含文本、分段、时间戳等信息
+        """
+        if not os.path.exists(audio_path):
+            raise FileNotFoundError(f"音频文件不存在: {audio_path}")
+            
+        self.ensure_model_loaded()
+        
+        try:
+            logger.info(f"开始转录音频: {audio_path}")
+            options = {
+                "verbose": False,
+            }
+            
+            if language:
+                options["language"] = language
+                
+            result = self.model.transcribe(audio_path, **options)
+            
+            logger.info("转录完成")
+            return result
+        except Exception as e:
+            logger.error(f"转录音频失败: {e}")
+            raise
+    
+    def get_segments_with_timestamps(self, audio_path: str, language: Optional[str] = "zh") -> List[Dict[str, Any]]:
+        """
+        获取带时间戳的分段文本
+        
+        参数:
+            audio_path: 音频文件路径
+            language: 语言代码
+            
+        返回:
+            包含时间戳和文本的分段列表
+        """
+        result = self.transcribe(audio_path, language)
+        
+        segments = []
+        for segment in result.get("segments", []):
+            segments.append({
+                "start": segment["start"],
+                "end": segment["end"],
+                "text": segment["text"].strip()
+            })
+            
+        return segments
+
+def convert_audio_to_wav(audio_path: str, output_path: Optional[str] = None) -> str:
+    """
+    将音频转换为WAV格式
+    
+    参数:
+        audio_path: 输入音频路径
+        output_path: 输出WAV文件路径，如果为None则自动生成
+        
+    返回:
+        WAV文件路径
+    """
+    if not os.path.exists(audio_path):
+        raise FileNotFoundError(f"音频文件不存在: {audio_path}")
+        
+    if not output_path:
+        fd, output_path = tempfile.mkstemp(suffix='.wav')
+        os.close(fd)
+    
+    try:
+        cmd = [
+            "ffmpeg",
+            "-i", audio_path,
+            "-acodec", "pcm_s16le",  # 设置为16位PCM编码
+            "-ac", "1",              # 设置为单声道
+            "-ar", "16000",          # 设置采样率为16kHz
+            "-y",                    # 覆盖已有文件
+            output_path
+        ]
+        
+        logger.info(f"执行命令: {' '.join(cmd)}")
+        result = subprocess.run(cmd, check=True, capture_output=True)
+        
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            logger.info(f"转换成功: {output_path}")
+            return output_path
+        else:
+            raise RuntimeError("转换失败，输出文件不存在或为空")
+    
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode('utf-8', errors='replace') if e.stderr else str(e)
+        logger.error(f"转换音频失败: {error_msg}")
+        raise RuntimeError(f"转换音频失败: {error_msg}")
+    except Exception as e:
+        logger.error(f"转换音频过程中发生错误: {str(e)}")
+        raise
+
+def get_audio_duration(file_path: str) -> float:
+    """
+    获取音频/视频文件的时长（秒）
+    
+    参数:
+        file_path: 文件路径
+    
+    返回:
+        文件时长（秒）
+    """
+    try:
+        probe = ffmpeg.probe(file_path)
+        # 获取音频或视频流
+        stream = next((stream for stream in probe['streams'] if stream['codec_type'] in ['audio', 'video']), None)
+        if stream:
+            duration = float(stream.get('duration', 0))
+            logger.debug(f"文件 {os.path.basename(file_path)} 时长: {duration:.2f}秒")
+            return duration
+        return 0
+    except Exception as e:
+        logger.error(f"获取文件时长失败: {str(e)}")
+        return 0
+````
+
+### [voice_replace.py](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_server/routers/voice_replace.py)
+
+创建新的路由处理声音置换请求：
+
+````python
+
+
+已进行更改。
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, status
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
+from sqlalchemy.orm import Session
+from typing import Optional, List
+import os
+import time
+import tempfile
+import logging
+import uuid
+import json
+import shutil
+
+from ..database import get_db
+from ..utils.security import oauth2_scheme, get_current_user
+from ..models import models
+from ..utils.audio_recognition import AudioRecognizer, convert_audio_to_wav
+from ..utils.text_splitter import (
+    get_audio_from_video, 
+    add_subtitles_to_video, 
+    replace_audio_in_video
+)
+
+from ..cosyvoice_helper import CosyVoiceHelper
+
+# 初始化日志
+logger = logging.getLogger(__name__)
+
+router = APIRouter(
+    prefix="/api/voice-replace",
+    tags=["voice-replace"]
+)
+
+# 临时存储任务状态
+task_status = {}
+
+# 临时文件目录
+TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "temp")
+os.makedirs(TEMP_DIR, exist_ok=True)
+
+@router.post("/upload")
+async def upload_video(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """上传视频文件并提取音频信息"""
+    if not file:
+        raise HTTPException(status_code=400, detail="未上传文件")
+
+    # 检查文件类型
+    if not file.filename.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.webm')):
+        raise HTTPException(status_code=400, detail="仅支持MP4、AVI、MOV、MKV和WEBM格式的视频")
+
+    # 生成任务ID
+    task_id = str(uuid.uuid4())
+    
+    # 创建任务目录
+    task_dir = os.path.join(TEMP_DIR, task_id)
+    os.makedirs(task_dir, exist_ok=True)
+    
+    try:
+        # 保存上传的视频文件
+        video_path = os.path.join(task_dir, file.filename)
+        with open(video_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        
+        # 初始化任务状态
+        task_status[task_id] = {
+            "status": "processing",
+            "message": "正在处理视频和提取音频",
+            "progress": 10,
+            "created_at": time.time(),
+            "user_id": current_user.id,
+            "video_path": video_path,
+            "original_filename": file.filename
+        }
+        
+        return JSONResponse({
+            "task_id": task_id,
+            "message": "文件已上传，开始处理",
+            "filename": file.filename
+        })
+        
+    except Exception as e:
+        logger.error(f"上传文件处理失败: {e}")
+        # 清理任务目录
+        if os.path.exists(task_dir):
+            shutil.rmtree(task_dir)
+        raise HTTPException(status_code=500, detail=f"上传文件处理失败: {str(e)}")
+
+@router.get("/status/{task_id}")
+async def get_task_status(
+    task_id: str,
+    current_user: models.User = Depends(get_current_user)
+):
+    """获取任务状态"""
+    if task_id not in task_status:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 验证权限
+    if task_status[task_id]["user_id"] != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权访问此任务")
+    
+    return task_status[task_id]
+
+@router.post("/analyze/{task_id}")
+async def analyze_audio(
+    task_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(get_current_user)
+):
+    """分析视频中的音频并识别语音"""
+    if task_id not in task_status:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 验证权限
+    if task_status[task_id]["user_id"] != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权访问此任务")
+    
+    task_data = task_status[task_id]
+    video_path = task_data["video_path"]
+    
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="视频文件不存在")
+    
+    # 更新任务状态
+    task_status[task_id]["status"] = "analyzing"
+    task_status[task_id]["message"] = "正在提取音频并识别语音"
+    task_status[task_id]["progress"] = 20
+    
+    # 在后台执行音频分析
+    background_tasks.add_task(process_audio_analysis, task_id, video_path, current_user.id)
+    
+    return {"message": "开始分析音频", "task_id": task_id}
+
+@router.post("/synthesize/{task_id}")
+async def synthesize_audio(
+    task_id: str,
+    background_tasks: BackgroundTasks,
+    voice_id: str = Form(...),
+    is_preset: bool = Form(False),
+    add_subtitles: bool = Form(True),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """使用选定的声音合成新音频并替换视频中的音频"""
+    if task_id not in task_status:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 验证权限
+    if task_status[task_id]["user_id"] != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权访问此任务")
+    
+    task_data = task_status[task_id]
+    
+    # 验证任务状态
+    if task_data.get("status") not in ["analyzed", "processing", "failed"]:
+        raise HTTPException(status_code=400, detail="任务尚未完成分析或不在正确状态")
+    
+    # 验证任务是否有识别的文本
+    if "text" not in task_data:
+        raise HTTPException(status_code=400, detail="任务没有识别到文本，无法进行声音合成")
+    
+    # 检查视频文件是否存在
+    video_path = task_data["video_path"]
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="视频文件不存在")
+    
+    # 验证声音ID
+    try:
+        # 处理预设声音
+        if is_preset:
+            # 验证预设声音是否存在
+            cosyvoice_helper = CosyVoiceHelper(lazy_load=True)
+            preset_voices = cosyvoice_helper.get_preset_voices()
+            
+            # 如果voice_id是数字，尝试作为索引使用
+            if voice_id.isdigit():
+                voice_idx = int(voice_id)
+                if voice_idx < 1 or voice_idx > len(preset_voices):
+                    raise HTTPException(status_code=400, detail=f"预设声音索引无效: {voice_id}")
+            else:
+                # 否则作为声音名称使用
+                if voice_id not in preset_voices:
+                    raise HTTPException(status_code=400, detail=f"预设声音名称无效: {voice_id}")
+        else:
+            # 验证用户声音
+            voice = db.query(models.Voice).filter(models.Voice.id == voice_id).first()
+            if not voice:
+                raise HTTPException(status_code=404, detail=f"声音ID不存在: {voice_id}")
+            
+            # 检查权限
+            if not voice.is_preset and voice.user_id != current_user.id:
+                raise HTTPException(status_code=403, detail="无权使用此声音")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="无效的声音ID格式")
+    
+    # 更新任务状态
+    task_status[task_id]["status"] = "synthesizing"
+    task_status[task_id]["message"] = "开始合成新音频"
+    task_status[task_id]["progress"] = 40
+    task_status[task_id]["voice_id"] = voice_id
+    task_status[task_id]["is_preset"] = is_preset
+    task_status[task_id]["add_subtitles"] = add_subtitles
+    
+    # 在后台执行音频合成
+    background_tasks.add_task(process_audio_synthesis, task_id, voice_id, is_preset, add_subtitles, current_user.id, db)
+    
+    return {"message": "开始合成音频", "task_id": task_id}
+
+@router.get("/download/{task_id}")
+async def download_result(
+    task_id: str,
+    current_user: models.User = Depends(get_current_user)
+):
+    """下载处理结果"""
+    if task_id not in task_status:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 验证权限
+    if task_status[task_id]["user_id"] != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权访问此任务")
+    
+    task_data = task_status[task_id]
+    
+    # 验证任务是否完成
+    if task_data.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="任务尚未完成")
+    
+    # 检查输出文件是否存在
+    output_path = task_data.get("output_path")
+    if not output_path or not os.path.exists(output_path):
+        raise HTTPException(status_code=404, detail="输出文件不存在")
+    
+    # 获取原始文件名
+    original_filename = task_data.get("original_filename", "video")
+    base_name = os.path.splitext(original_filename)[0]
+    output_filename = f"{base_name}_replaced.mp4"
+    
+    return FileResponse(
+        path=output_path, 
+        filename=output_filename,
+        media_type="video/mp4"
+    )
+
+@router.post("/cleanup/{task_id}")
+async def cleanup_task(
+    task_id: str,
+    current_user: models.User = Depends(get_current_user)
+):
+    """清理任务文件和状态"""
+    if task_id not in task_status:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 验证权限
+    if task_status[task_id]["user_id"] != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权访问此任务")
+    
+    # 获取任务目录
+    task_dir = os.path.join(TEMP_DIR, task_id)
+    
+    # 清理任务目录
+    if os.path.exists(task_dir):
+        try:
+            shutil.rmtree(task_dir)
+        except Exception as e:
+            logger.error(f"清理任务目录失败: {e}")
+    
+    # 移除任务状态
+    task_data = task_status.pop(task_id, None)
+    
+    return {"message": "任务已清理"}
+
+# 后台处理函数
+def process_audio_analysis(task_id: str, video_path: str, user_id: int):
+    """后台处理音频分析"""
+    task_dir = os.path.join(TEMP_DIR, task_id)
+    audio_path = os.path.join(task_dir, "audio.wav")
+    
+    try:
+        # 提取音频
+        task_status[task_id]["message"] = "正在从视频提取音频"
+        task_status[task_id]["progress"] = 25
+        
+        audio_path = get_audio_from_video(video_path, audio_path)
+        
+        # 初始化语音识别器
+        task_status[task_id]["message"] = "正在加载语音识别模型"
+        task_status[task_id]["progress"] = 30
+        
+        recognizer = AudioRecognizer(model_size="medium")
+        
+        # 识别语音
+        task_status[task_id]["message"] = "正在识别语音内容"
+        task_status[task_id]["progress"] = 40
+        
+        try:
+            # 获取带时间戳的分段
+            segments = recognizer.get_segments_with_timestamps(audio_path)
+            
+            # 合并所有文本
+            full_text = " ".join([s["text"] for s in segments])
+            
+            # 将结果保存到任务状态
+            task_status[task_id]["segments"] = segments
+            task_status[task_id]["text"] = full_text
+            task_status[task_id]["audio_path"] = audio_path
+            task_status[task_id]["status"] = "analyzed"
+            task_status[task_id]["message"] = "音频分析完成"
+            task_status[task_id]["progress"] = 60
+            
+            # 保存识别结果到文件
+            segments_file = os.path.join(task_dir, "segments.json")
+            with open(segments_file, "w", encoding="utf-8") as f:
+                json.dump(segments, f, ensure_ascii=False, indent=2)
+                
+            text_file = os.path.join(task_dir, "transcript.txt")
+            with open(text_file, "w", encoding="utf-8") as f:
+                f.write(full_text)
+                
+            logger.info(f"任务 {task_id} 音频分析完成，识别到 {len(segments)} 个分段")
+            
+        except Exception as e:
+            logger.error(f"语音识别失败: {e}")
+            task_status[task_id]["status"] = "failed"
+            task_status[task_id]["message"] = f"语音识别失败: {str(e)}"
+            task_status[task_id]["progress"] = 0
+    
+    except Exception as e:
+        logger.error(f"音频分析过程中出错: {e}")
+        task_status[task_id]["status"] = "failed"
+        task_status[task_id]["message"] = f"处理失败: {str(e)}"
+        task_status[task_id]["progress"] = 0
+
+def process_audio_synthesis(task_id: str, voice_id: str, is_preset: bool, add_subtitles: bool, user_id: int, db: Session):
+    """后台处理音频合成"""
+    task_dir = os.path.join(TEMP_DIR, task_id)
+    
+    try:
+        task_data = task_status[task_id]
+        video_path = task_data["video_path"]
+        segments = task_data["segments"]
+        text = task_data["text"]
+        
+        # 初始化CosyVoice
+        task_status[task_id]["message"] = "正在初始化语音合成引擎"
+        task_status[task_id]["progress"] = 45
+        
+        cosyvoice_helper = CosyVoiceHelper()
+        
+        # 合成新音频
+        task_status[task_id]["message"] = "正在合成新音频"
+        task_status[task_id]["progress"] = 50
+        
+        # 创建输出文件路径
+        new_audio_path = os.path.join(task_dir, "synthesized_audio.wav")
+        
+        # 合成语音
+        if is_preset:
+            # 使用预设声音
+            result = cosyvoice_helper.synthesize_long_text(text, voice_id, new_audio_path)
+        else:
+            # 使用用户上传的声音
+            voice = db.query(models.Voice).filter(models.Voice.id == voice_id).first()
+            if not voice:
+                raise ValueError(f"声音ID不存在: {voice_id}")
+                
+            # 构建完整的音频文件路径
+            uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+            prompt_audio_path = os.path.join(uploads_dir, voice.filename)
+            
+            # 合成语音
+            result = cosyvoice_helper.synthesize_long_text(text, voice_id, new_audio_path)
+        
+        # 替换视频中的音频
+        task_status[task_id]["message"] = "正在替换视频音频"
+        task_status[task_id]["progress"] = 70
+        
+        # 替换音频
+        output_video_path = os.path.join(task_dir, "output_video_no_subtitles.mp4")
+        replaced_video = replace_audio_in_video(video_path, new_audio_path, output_video_path)
+        
+        # 如果需要添加字幕
+        if add_subtitles:
+            task_status[task_id]["message"] = "正在添加字幕"
+            task_status[task_id]["progress"] = 85
+            
+            # 创建最终输出文件路径
+            final_output_path = os.path.join(task_dir, "output_video_with_subtitles.mp4")
+            
+            # 添加字幕
+            final_video = add_subtitles_to_video(replaced_video, segments, final_output_path)
+            output_path = final_video
+        else:
+            output_path = replaced_video
+        
+        # 更新任务状态
+        task_status[task_id]["status"] = "completed"
+        task_status[task_id]["message"] = "处理完成"
+        task_status[task_id]["progress"] = 100
+        task_status[task_id]["output_path"] = output_path
+        
+        logger.info(f"任务 {task_id} 处理完成，输出文件: {output_path}")
+        
+        # 记录语音合成日志
+        try:
+            synthesis_log = models.SynthesisLog(
+                type="voice_replace",
+                user_id=user_id,
+                voice_id=None if is_preset else int(voice_id),
+                text_length=len(text),
+                duration=0  # 可以计算实际长度
+            )
+            db.add(synthesis_log)
+            db.commit()
+        except Exception as e:
+            logger.error(f"记录合成日志失败: {e}")
+    
+    except Exception as e:
+        logger.error(f"音频合成过程中出错: {e}")
+        task_status[task_id]["status"] = "failed"
+        task_status[task_id]["message"] = f"处理失败: {str(e)}"
+        task_status[task_id]["progress"] = 0
+````
+
+### [main.py](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_server/main.py)
+
+注册新的路由：
+
+````python
+
+
+已进行更改。
+
+# ...existing code...
+
+# 导入声音置换路由模块
+from .routers import auth, voice, admin, courseware, voice_replace
+
+# ...existing code...
+
+# 包含路由
+app.include_router(auth.router, prefix="/api", tags=["auth"])
+app.include_router(voice.router, prefix="/api", tags=["voice"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(courseware.router, prefix="/api", tags=["courseware"])
+# 添加声音置换路由
+app.include_router(voice_replace.router, tags=["voice-replace"])
+
+# ...existing code...
+````
+
+### [main.js](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_web/static/js/main.js)
+
+添加声音置换功能相关的 JavaScript 函数：
+
+````javascript
+
+
+已进行更改。
+
+// ...existing code...
+
+// 声音置换相关函数
+async function uploadVideoForVoiceReplacement(event) {
+    event.preventDefault();
+    
+    const videoFile = document.getElementById('voiceReplaceVideoFile').files[0];
+    if (!videoFile) {
+        showToast('请选择视频文件', 'error');
+        return;
+    }
+    
+    // 验证文件类型
+    if (!videoFile.name.toLowerCase().match(/\.(mp4|avi|mov|mkv|webm)$/)) {
+        showToast('仅支持MP4、AVI、MOV、MKV和WEBM格式的视频', 'error');
+        return;
+    }
+    
+    // 验证文件大小 (最大100MB)
+    if (videoFile.size > 100 * 1024 * 1024) {
+        showToast('文件大小不能超过100MB', 'error');
+        return;
+    }
+    
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="loading-spinner"></span>上传中...';
+    
+    // 显示进度指示
+    const progressSection = document.getElementById('voiceReplaceProgressSection');
+    progressSection.style.display = 'block';
+    const progressStatus = document.getElementById('voiceReplaceProgressStatus');
+    progressStatus.textContent = '正在上传视频文件...';
+    
+    try {
+        // 创建FormData
+        const formData = new FormData();
+        formData.append('file', videoFile);
+        
+        // 上传视频文件
+        const response = await fetch('/api/voice-replace/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || '上传失败');
+        }
+        
+        const data = await response.json();
+        const taskId = data.task_id;
+        
+        progressStatus.textContent = '视频已上传，开始分析音频...';
+        
+        // 显示分析按钮
+        document.getElementById('voiceReplaceAnalyzeSection').style.display = 'block';
+        document.getElementById('voiceReplaceTaskId').value = taskId;
+        
+        showToast('视频上传成功！请点击"开始分析"按钮进行音频分析', 'success');
+        
+        // 保存任务信息
+        window.voiceReplaceCurrentTask = {
+            taskId: taskId,
+            filename: videoFile.name
+        };
+        
+    } catch (error) {
+        console.error('Upload error:', error);
+        showToast('上传失败: ' + error.message, 'error');
+        progressStatus.textContent = '上传失败: ' + error.message;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 6px;">
+                <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            上传视频
+        `;
+    }
+}
+
+async function analyzeVideoAudio(event) {
+    event.preventDefault();
+    
+    const taskId = document.getElementById('voiceReplaceTaskId').value;
+    if (!taskId) {
+        showToast('任务ID不能为空', 'error');
+        return;
+    }
+    
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="loading-spinner"></span>分析中...';
+    
+    const progressStatus = document.getElementById('voiceReplaceProgressStatus');
+    progressStatus.textContent = '正在分析视频中的音频...';
+    
+    try {
+        // 开始分析请求
+        const response = await fetch(`/api/voice-replace/analyze/${taskId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || '分析失败');
+        }
+        
+        // 获取任务结果
+        const result = await pollVoiceReplaceTaskStatus(taskId);
+        
+        if (result.status === 'analyzed') {
+            // 显示识别结果
+            document.getElementById('voiceReplaceTextResult').style.display = 'block';
+            document.getElementById('recognizedText').value = result.text;
+            
+            // 显示声音选择部分
+            document.getElementById('voiceReplaceSynthesizeSection').style.display = 'block';
+            
+            showToast('音频分析完成！', 'success');
+        } else {
+            throw new Error('分析失败: ' + (result.message || '未知错误'));
+        }
+        
+    } catch (error) {
+        console.error('Analysis error:', error);
+        showToast('分析失败: ' + error.message, 'error');
+        progressStatus.textContent = '分析失败: ' + error.message;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = '开始分析';
+    }
+}
+
+async function synthesizeReplacementAudio(event) {
+    event.preventDefault();
+    
+    const taskId = document.getElementById('voiceReplaceTaskId').value;
+    if (!taskId) {
+        showToast('任务ID不能为空', 'error');
+        return;
+    }
+    
+    const voiceSelect = document.getElementById('voiceReplaceVoiceId');
+    const voiceOption = voiceSelect.options[voiceSelect.selectedIndex];
+    const voiceId = voiceOption.value;
+    const isPreset = voiceOption.dataset.isPreset === 'true';
+    
+    if (!voiceId) {
+        showToast('请选择替换声音', 'error');
+        return;
+    }
+    
+    // 获取是否添加字幕
+    const addSubtitles = document.getElementById('voiceReplaceAddSubtitles').checked;
+    
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="loading-spinner"></span>合成中...';
+    
+    const progressStatus = document.getElementById('voiceReplaceProgressStatus');
+    progressStatus.textContent = '正在合成替换音频...';
+    
+    try {
+        // 创建FormData
+        const formData = new FormData();
+        formData.append('voice_id', voiceId);
+        formData.append('is_preset', isPreset);
+        formData.append('add_subtitles', addSubtitles);
+        
+        // 开始合成请求
+        const response = await fetch(`/api/voice-replace/synthesize/${taskId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || '合成失败');
+        }
+        
+        // 获取任务结果
+        const result = await pollVoiceReplaceTaskStatus(taskId);
+        
+        if (result.status === 'completed') {
+            // 显示下载部分
+            document.getElementById('voiceReplaceResultSection').style.display = 'block';
+            
+            // 设置下载链接
+            const downloadButton = document.getElementById('voiceReplaceDownloadBtn');
+            downloadButton.onclick = () => {
+                downloadVoiceReplaceResult(taskId);
+            };
+            
+            showToast('声音置换完成！', 'success');
+            progressStatus.textContent = '声音置换完成！您可以下载结果视频。';
+        } else {
+            throw new Error('合成失败: ' + (result.message || '未知错误'));
+        }
+        
+    } catch (error) {
+        console.error('Synthesis error:', error);
+        showToast('合成失败: ' + error.message, 'error');
+        progressStatus.textContent = '合成失败: ' + error.message;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = '开始合成';
+    }
+}
+
+async function pollVoiceReplaceTaskStatus(taskId) {
+    return new Promise((resolve, reject) => {
+        let completed = false;
+        let attempts = 0;
+        const maxAttempts = 240; // 最多等待20分钟（240 * 5秒）
+        
+        const progressStatus = document.getElementById('voiceReplaceProgressStatus');
+        let progressBar = document.getElementById('voiceReplaceProgressBar');
+        let progressBarContainer = document.getElementById('voiceReplaceProgressBarContainer');
+        
+        if (!progressBarContainer) {
+            progressBarContainer = document.createElement('div');
+            progressBarContainer.id = 'voiceReplaceProgressBarContainer';
+            progressBarContainer.className = 'progress-bar-container';
+            
+            progressBar = document.createElement('div');
+            progressBar.id = 'voiceReplaceProgressBar';
+            progressBar.className = 'progress-bar';
+            
+            progressBarContainer.appendChild(progressBar);
+            progressStatus.parentNode.insertBefore(progressBarContainer, progressStatus.nextSibling);
+        }
+        
+        const checkStatus = async () => {
+            try {
+                const response = await fetch(`/api/voice-replace/status/${taskId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('获取任务状态失败');
+                }
+                
+                const statusData = await response.json();
+                console.log('任务状态:', statusData);
+                
+                // 更新进度条和状态
+                if (progressStatus && statusData.message) {
+                    progressStatus.textContent = statusData.message;
+                }
+                
+                if (progressBar && statusData.progress !== undefined) {
+                    progressBar.style.width = `${statusData.progress}%`;
+                }
+                
+                // 检查任务状态
+                if (statusData.status === 'completed' || statusData.status === 'analyzed') {
+                    completed = true;
+                    resolve(statusData);
+                } else if (statusData.status === 'failed') {
+                    completed = true;
+                    reject(new Error(statusData.message || '处理失败'));
+                }
+                
+                // 达到最大尝试次数后超时
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    completed = true;
+                    reject(new Error('处理超时，请稍后再试'));
+                }
+                
+            } catch (error) {
+                console.error('获取任务状态出错:', error);
+                attempts++;
+                
+                // 如果连续多次出错，则结束轮询
+                if (attempts >= 5) {
+                    completed = true;
+                    reject(error);
+                }
+            }
+            
+            if (!completed) {
+                // 继续轮询
+                setTimeout(checkStatus, 5000); // 每5秒查询一次
+            }
+        };
+        
+        // 开始轮询
+        checkStatus();
+    });
+}
+
+function downloadVoiceReplaceResult(taskId) {
+    const progressStatus = document.getElementById('voiceReplaceProgressStatus');
+    if (progressStatus) {
+        progressStatus.textContent = '准备下载中...';
+    }
+    
+    // 获取token
+    const token = localStorage.getItem('token');
+    
+    // 创建下载链接
+    const downloadUrl = `/api/voice-replace/download/${taskId}`;
+    
+    // 创建临时链接元素并模拟点击
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.target = '_blank';
+    link.setAttribute('download', '');
+    
+    // 添加授权头（注：此方式无法直接添加授权头，但保留这个注释以表明意图）
+    // link.setAttribute('Authorization', `Bearer ${token}`);
+    
+    // 创建一个隐藏的iframe来发起带Authorization的请求
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    // 使用fetch API下载文件
+    fetch(downloadUrl, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`下载失败: ${response.status} ${response.statusText}`);
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        // 创建对象URL并触发下载
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${window.voiceReplaceCurrentTask?.filename || 'video'}_replaced.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        // 清理iframe
+        document.body.removeChild(iframe);
+        
+        if (progressStatus) {
+            progressStatus.textContent = '下载完成！';
+        }
+    })
+    .catch(error => {
+        console.error('下载错误:', error);
+        alert(`下载失败: ${error.message}`);
+        // 清理iframe
+        document.body.removeChild(iframe);
+        
+        if (progressStatus) {
+            progressStatus.textContent = `下载失败: ${error.message}`;
+        }
+    });
+}
+
+// 初始化页面时添加监听器
+document.addEventListener('DOMContentLoaded', () => {
+    // ...existing code...
+
+    // 添加声音置换表单事件监听器
+    const voiceReplaceUploadForm = document.getElementById('voiceReplaceUploadForm');
+    if (voiceReplaceUploadForm) {
+        voiceReplaceUploadForm.addEventListener('submit', uploadVideoForVoiceReplacement);
+    }
+    
+    const voiceReplaceAnalyzeForm = document.getElementById('voiceReplaceAnalyzeForm');
+    if (voiceReplaceAnalyzeForm) {
+        voiceReplaceAnalyzeForm.addEventListener('submit', analyzeVideoAudio);
+    }
+    
+    const voiceReplaceSynthesizeForm = document.getElementById('voiceReplaceSynthesizeForm');
+    if (voiceReplaceSynthesizeForm) {
+        voiceReplaceSynthesizeForm.addEventListener('submit', synthesizeReplacementAudio);
+    }
+});
+
+// 在loadVoiceList函数中添加对声音置换选择框的支持
+async function loadVoiceList() {
+    try {
+        // ...existing code...
+        
+        // 加载声音置换声音选择框
+        const voiceReplaceSelect = document.getElementById('voiceReplaceVoiceId');
+        if (voiceReplaceSelect) {
+            voiceReplaceSelect.innerHTML = ''; // 清空现有选项
+            
+            // 添加预设声音选项
+            if (presetVoices.length > 0) {
+                const presetGroup = document.createElement('optgroup');
+                presetGroup.label = '预设声音';
+                presetVoices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.id;
+                    option.textContent = voice.name;
+                    option.dataset.isPreset = 'true'; // 添加数据属性标记为预置声音
+                    presetGroup.appendChild(option);
+                });
+                voiceReplaceSelect.appendChild(presetGroup);
+            }
+            
+            // 添加自定义声音选项
+            if (customVoices.length > 0) {
+                const customGroup = document.createElement('optgroup');
+                customGroup.label = '我的声音';
+                customVoices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.id;
+                    option.textContent = voice.name;
+                    option.dataset.isPreset = 'false'; // 添加数据属性标记为非预置声音
+                    customGroup.appendChild(option);
+                });
+                voiceReplaceSelect.appendChild(customGroup);
+            } else if (presetVoices.length === 0) {
+                // 如果没有可用声音，添加提示选项
+                const option = document.createElement('option');
+                option.value = "";
+                option.disabled = true;
+                option.selected = true;
+                option.textContent = "没有可用声音";
+                voiceReplaceSelect.appendChild(option);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading voices:', error);
+    }
+}
+````
+
+### [index.html](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_web/index.html)
+
+添加声音置换功能区块到index.html：
+
+````html
+
+
+已进行更改。
+
+<!-- ...existing code... -->
+
+            <!-- 声音置换部分 -->
+            <section class="function-card">
+                <div class="function-header">
+                    <div class="function-icon" style="background: rgba(252, 130, 27, 0.1); color: #fc821b;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16.5 16.5L21.5 12M21.5 12L16.5 7.5M21.5 12H9M13 17C13 17 9.5 17 7 17C4.5 17 2.5 15.5 2.5 12C2.5 8.5 4.5 7 7 7C9.5 7 13 7 13 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h2>声音置换与字幕生成</h2>
+                </div>
+                <div class="function-guide">
+                    <div class="guide-icon">💡</div>
+                    <div class="guide-text">上传视频文件，系统将识别其中的语音内容，然后用您选择的声音重新合成，并可选择添加字幕。</div>
+                </div>
+
+                <form id="voiceReplaceUploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="voiceReplaceVideoFile">上传视频文件：</label>
+                        <div class="file-upload-container video-file-container">
+                            <input type="file" id="voiceReplaceVideoFile" name="file" accept=".mp4,.avi,.mov,.mkv,.webm" required>
+                            <div class="file-upload-btn">
+                                <div class="file-upload-icon">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 16.5V4.5M12 4.5L7.5 9M12 4.5L16.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3.5 20.5V17.5C3.5 16.9477 3.94772 16.5 4.5 16.5H19.5C20.0523 16.5 20.5 16.9477 20.5 17.5V20.5C20.5 21.0523 20.0523 21.5 19.5 21.5H4.5C3.94772 21.5 3.5 21.0523 3.5 20.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M6.5 18.5H8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <p class="file-upload-text">点击或拖拽上传视频文件</p>
+                                <p class="file-upload-hint">支持MP4、AVI、MOV、MKV和WEBM格式，最大100MB</p>
+                            </div>
+                            <div class="file-preview-container">
+                                <div class="file-preview">
+                                    <div class="file-preview-icon">
+                                        <span class="file-type-icon"></span>
+                                    </div>
+                
+
+找到具有 1 个许可证类型的类似代码
+
+ceng10086: 继续完成。
+
+GitHub Copilot: 我将继续完成声音置换和加字幕功能的实现。接下来，我需要在index.html中添加声音置换功能区块的剩余部分，并修改main.py文件以注册新的路由。
+
+让我们继续进行代码修改：
+
+### [index.html](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_web/index.html)
+
+在index.html文件中添加声音置换功能区块的剩余部分：
+
+````html
+                                    <div class="file-preview-info">
+                                        <div class="file-preview-name"></div>
+                                        <div class="file-preview-meta"></div>
+                                    </div>
+                                </div>
+                                <div class="file-preview-actions">
+                                    <button type="button" class="change-file-btn">更换文件</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="button-container">
+                        <button type="submit" class="primary-button">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            上传视频
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 进度显示区域 -->
+                <div id="voiceReplaceProgressSection" style="display: none;">
+                    <h3>处理进度</h3>
+                    <div id="voiceReplaceProgressStatus" class="progress-status">准备中...</div>
+                </div>
+
+                <!-- 分析视频音频部分 -->
+                <div id="voiceReplaceAnalyzeSection" style="display: none;">
+                    <form id="voiceReplaceAnalyzeForm">
+                        <input type="hidden" id="voiceReplaceTaskId" value="">
+                        <div class="button-container" style="margin-top: 20px;">
+                            <button type="submit" class="primary-button blue-button">
+                                <span class="button-icon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M15 15L21 21M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                开始分析
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 显示识别文本结果 -->
+                <div id="voiceReplaceTextResult" style="display: none;">
+                    <h3>识别结果</h3>
+                    <div class="form-group">
+                        <textarea id="recognizedText" placeholder="视频中的语音内容..." readonly></textarea>
+                    </div>
+                </div>
+
+                <!-- 声音合成部分 -->
+                <div id="voiceReplaceSynthesizeSection" style="display: none;">
+                    <form id="voiceReplaceSynthesizeForm">
+                        <div class="form-group">
+                            <label for="voiceReplaceVoiceId">选择替换声音：</label>
+                            <select id="voiceReplaceVoiceId" required>
+                                <option value="" disabled selected>请选择声音</option>
+                                <!-- 选项将通过JavaScript动态加载 -->
+                            </select>
+                            <span class="file-hint">"预设声音"为系统内置声音，"我的声音"为您上传的声音样本</span>
+                        </div>
+
+                        <div class="form-group">
+                            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                <input type="checkbox" id="voiceReplaceAddSubtitles" checked style="width: auto; margin-right: 10px;">
+                                <label for="voiceReplaceAddSubtitles" style="margin-bottom: 0;">为视频添加字幕</label>
+                            </div>
+                            <span class="file-hint">系统会自动添加字幕，使视频更易于理解</span>
+                        </div>
+
+                        <div class="button-container">
+                            <button type="submit" class="primary-button green-button">
+                                <span class="button-icon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M14.875 5.58397C14.875 3.22882 12.1401 1.86395 10.3603 3.44263L3.56203 9.44886C2.29544 10.5861 2.29544 12.5144 3.56203 13.6517L10.3603 19.6579C12.1401 21.2366 14.875 19.8717 14.875 17.5166L14.875 5.58397Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                开始合成
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 结果下载区域 -->
+                <div id="voiceReplaceResultSection" style="display: none;">
+                    <div class="success-box">
+                        <div class="success-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3>处理完成</h3>
+                        <p>视频声音替换已完成，可以下载使用</p>
+                        <button id="voiceReplaceDownloadBtn" class="download-button green-download">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            下载处理后的视频
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 功能说明 -->
+                <div class="tips-box" style="margin-top: 24px;">
+                    <div class="tips-header">功能说明</div>
+                    <ul class="tips-list">
+                        <li>上传视频后，系统会自动提取音频并进行语音识别</li>
+                        <li>可选择任意声音（预设或上传的声音）替换视频中的原声</li>
+                        <li>可选择是否自动添加字幕到视频中，便于理解内容</li>
+                        <li>处理完成后可下载替换声音和添加字幕后的视频</li>
+                    </ul>
+                </div>
+            </section>
+````
+
+### [main.py](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_server/main.py)
+
+修改main.py文件以注册新的路由：
+
+````python
+
+
+已进行更改。
+
+from fastapi import FastAPI, Depends, Form, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from .database import engine, get_db
+from sqlalchemy.orm import Session
+from .models import models
+from .models.models import User, Voice
+from .routers import auth, voice, admin, courseware, voice_replace
+# 修改此行 - 从routers.auth模块导入get_current_user函数
+from .routers.auth import get_current_user
+from ai_voice_server.cosyvoice_helper import CosyVoiceHelper
+from typing import List
+import os
+import uuid
+import logging
+import scipy.io.wavfile as wav
+import numpy as np
+
+# ...existing code...
+
+# 包含路由
+app.include_router(auth.router, prefix="/api", tags=["auth"])
+app.include_router(voice.router, prefix="/api", tags=["voice"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(courseware.router, prefix="/api", tags=["courseware"])
+# 添加声音置换路由
+app.include_router(voice_replace.router, tags=["voice-replace"])
+
+# ...existing code...
+````

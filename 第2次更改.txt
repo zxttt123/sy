@@ -1,0 +1,468 @@
+ceng10086: 要增加下面的功能，已经在上次更改中完成了部分代码，但是还有部分未完成（还有部分代码不符合功能，比如说：下载字幕按钮和下载视频按钮要分开、选择声音的下拉框也没有显示在界面上；可能还有其他问题，要仔细检查）。请修改、补全该功能修改的代码。（上次增加的代码以及上次的要求见 `第1次更改.txt`）
+
+```
+增加如下功能：
+
+声音置换及加字幕功能：导入一段音视频，通过更换声音实现变声，输出带有同步字幕的音视频。
+
+具体要求：可以使用预置声音以及用户上传的声音。
+```
+
+注意：每次对话只对每个要更改的文件进行一次更改，以免造成混乱。
+
+GitHub Copilot: 根据您的需求，我需要修改代码以完善声音置换及加字幕功能。我注意到主要问题包括：下载字幕和下载视频按钮需要分开、声音选择下拉框显示问题等。
+
+让我逐步解决这些问题：
+
+### [index.html](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_web/index.html)
+
+首先修复index.html中的问题：
+
+```html
+<!-- ...existing code... -->
+
+<!-- 声音置换部分 -->
+<section class="function-card">
+    <div class="function-header">
+        <div class="function-icon" style="background: rgba(252, 130, 27, 0.1); color: #fc821b;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16.5 16.5L21.5 12M21.5 12L16.5 7.5M21.5 12H9M13 17C13 17 9.5 17 7 17C4.5 17 2.5 15.5 2.5 12C2.5 8.5 4.5 7 7 7C9.5 7 13 7 13 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <h2>声音置换与字幕生成</h2>
+    </div>
+    <div class="function-guide">
+        <div class="guide-icon">💡</div>
+        <div class="guide-text">上传视频文件，系统将识别其中的语音内容，然后用您选择的声音重新合成，并可选择添加字幕。</div>
+    </div>
+
+    <form id="voiceReplaceUploadForm" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="voiceReplaceVideoFile">上传视频文件：</label>
+            <div class="file-upload-container video-file-container">
+                <input type="file" id="voiceReplaceVideoFile" name="file" accept=".mp4,.avi,.mov,.mkv,.webm" required>
+                <div class="file-upload-btn">
+                    <div class="file-upload-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16.5V4.5M12 4.5L7.5 9M12 4.5L16.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3.5 20.5V17.5C3.5 16.9477 3.94772 16.5 4.5 16.5H19.5C20.0523 16.5 20.5 16.9477 20.5 17.5V20.5C20.5 21.0523 20.0523 21.5 19.5 21.5H4.5C3.94772 21.5 3.5 21.0523 3.5 20.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M6.5 18.5H8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <p class="file-upload-text">点击或拖拽上传视频文件</p>
+                    <p class="file-upload-hint">支持MP4、AVI、MOV、MKV和WEBM格式，最大100MB</p>
+                </div>
+                <div class="file-preview-container">
+                    <div class="file-preview">
+                        <div class="file-preview-icon">
+                            <span class="file-type-icon"></span>
+                        </div>
+                        <div class="file-preview-info">
+                            <div class="file-preview-name"></div>
+                            <div class="file-preview-meta"></div>
+                        </div>
+                    </div>
+                    <div class="file-preview-actions">
+                        <button type="button" class="change-file-btn">更换文件</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="button-container">
+            <button type="submit" class="primary-button">
+                <span class="button-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                上传视频
+            </button>
+        </div>
+    </form>
+
+    <!-- 进度显示区域 -->
+    <div id="voiceReplaceProgressSection" style="display: none;">
+        <h3>处理进度</h3>
+        <div id="voiceReplaceProgressStatus" class="progress-status">准备中...</div>
+    </div>
+
+    <!-- 分析视频音频部分 -->
+    <div id="voiceReplaceAnalyzeSection" style="display: none;">
+        <form id="voiceReplaceAnalyzeForm">
+            <input type="hidden" id="voiceReplaceTaskId" value="">
+            <div class="button-container" style="margin-top: 20px;">
+                <button type="submit" class="primary-button blue-button">
+                    <span class="button-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M15 15L21 21M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
+                    开始分析
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 显示识别文本结果 -->
+    <div id="voiceReplaceTextResult" style="display: none;">
+        <h3>识别结果</h3>
+        <div class="form-group">
+            <textarea id="recognizedText" placeholder="视频中的语音内容..." readonly></textarea>
+        </div>
+    </div>
+
+    <!-- 声音合成部分 -->
+    <div id="voiceReplaceSynthesizeSection" style="display: none;">
+        <form id="voiceReplaceSynthesizeForm">
+            <div class="form-group">
+                <label for="voiceReplaceVoiceId">选择替换声音：</label>
+                <select id="voiceReplaceVoiceId" required>
+                    <option value="" disabled selected>请选择声音</option>
+                    <!-- 选项将通过JavaScript动态加载 -->
+                </select>
+                <span class="file-hint">"预设声音"为系统内置声音，"我的声音"为您上传的声音样本</span>
+            </div>
+
+            <div class="form-group">
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <input type="checkbox" id="voiceReplaceAddSubtitles" checked style="width: auto; margin-right: 10px;">
+                    <label for="voiceReplaceAddSubtitles" style="margin-bottom: 0;">为视频添加字幕</label>
+                </div>
+                <span class="file-hint">系统会自动添加字幕，使视频更易于理解</span>
+            </div>
+
+            <div class="button-container">
+                <button type="submit" class="primary-button green-button">
+                    <span class="button-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14.875 5.58397C14.875 3.22882 12.1401 1.86395 10.3603 3.44263L3.56203 9.44886C2.29544 10.5861 2.29544 12.5144 3.56203 13.6517L10.3603 19.6579C12.1401 21.2366 14.875 19.8717 14.875 17.5166L14.875 5.58397Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
+                    开始合成
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 结果下载区域 - 修改后的版本，分开下载视频和字幕按钮 -->
+    <div id="voiceReplaceResultSection" style="display: none;">
+        <div class="success-box">
+            <div class="success-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h3>处理完成</h3>
+            <p>视频声音替换已完成，可以下载使用</p>
+            <div class="download-buttons-container">
+                <button id="voiceReplaceDownloadBtn" class="download-button green-download">
+                    <span class="button-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
+                    下载处理后的视频
+                </button>
+                <button id="voiceReplaceDownloadSubtitlesBtn" class="download-button blue-download">
+                    <span class="button-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
+                    下载字幕文件
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 功能说明 -->
+    <div class="tips-box" style="margin-top: 24px;">
+        <div class="tips-header">功能说明</div>
+        <ul class="tips-list">
+            <li>上传视频后，系统会自动提取音频并进行语音识别</li>
+            <li>可选择任意声音（预设或上传的声音）替换视频中的原声</li>
+            <li>可选择是否自动添加字幕到视频中，便于理解内容</li>
+            <li>处理完成后可下载替换声音和添加字幕后的视频，也可单独下载字幕文件</li>
+        </ul>
+    </div>
+</section>
+
+<!-- ...existing code... -->
+```
+
+接下来，我需要修改main.js文件，添加下载字幕的功能。我将在稍后的回复中提供这部分代码。
+
+已进行更改。
+
+找到具有 1 个许可证类型的类似代码
+
+ceng10086: 继续
+
+GitHub Copilot: 现在我需要修改main.js文件以添加下载字幕文件的功能，并确保声音置换功能正确实现。以下是修改步骤：
+
+### [main.js](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_web/static/js/main.js)
+
+修改main.js文件，添加下载字幕功能并优化声音置换功能：
+
+```javascript
+// ...existing code...
+
+// 声音置换相关函数
+async function uploadVideoForVoiceReplacement(event) {
+    event.preventDefault();
+    
+    const videoFile = document.getElementById('voiceReplaceVideoFile').files[0];
+    if (!videoFile) {
+        showToast('请选择视频文件', 'error');
+        return;
+    }
+    
+    // ...existing code...
+}
+
+// ...existing code...
+
+async function synthesizeReplacementAudio(event) {
+    // ...existing code...
+    
+    try {
+        // ...existing code...
+        
+        if (result.status === 'completed') {
+            // 显示下载部分
+            document.getElementById('voiceReplaceResultSection').style.display = 'block';
+            
+            // 设置下载视频按钮
+            const downloadButton = document.getElementById('voiceReplaceDownloadBtn');
+            downloadButton.onclick = () => {
+                downloadVoiceReplaceResult(taskId, 'video');
+            };
+            
+            // 设置下载字幕按钮
+            const downloadSubtitlesButton = document.getElementById('voiceReplaceDownloadSubtitlesBtn');
+            downloadSubtitlesButton.onclick = () => {
+                downloadVoiceReplaceResult(taskId, 'subtitles');
+            };
+            
+            showToast('声音置换完成！', 'success');
+            progressStatus.textContent = '声音置换完成！您可以下载结果视频和字幕文件。';
+        } else {
+            throw new Error('合成失败: ' + (result.message || '未知错误'));
+        }
+        
+    } catch (error) {
+        // ...existing code...
+    }
+}
+
+// ...existing code...
+
+// 修改下载函数，添加类型参数以支持下载视频或字幕
+function downloadVoiceReplaceResult(taskId, type = 'video') {
+    const progressStatus = document.getElementById('voiceReplaceProgressStatus');
+    if (progressStatus) {
+        progressStatus.textContent = `准备下载${type === 'subtitles' ? '字幕' : '视频'}中...`;
+    }
+    
+    // 获取token
+    const token = localStorage.getItem('token');
+    
+    // 创建下载链接 - 根据类型选择不同的API端点
+    const downloadUrl = type === 'subtitles' 
+        ? `/api/voice-replace/download-subtitles/${taskId}` 
+        : `/api/voice-replace/download/${taskId}`;
+    
+    // 使用fetch API下载文件
+    fetch(downloadUrl, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`下载失败: ${response.status} ${response.statusText}`);
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        // 创建对象URL并触发下载
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // 设置文件名 - 根据类型选择不同的文件扩展名
+        const fileName = type === 'subtitles'
+            ? `${window.voiceReplaceCurrentTask?.filename || 'video'}_subtitles.srt`
+            : `${window.voiceReplaceCurrentTask?.filename || 'video'}_replaced.mp4`;
+            
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        if (progressStatus) {
+            progressStatus.textContent = `${type === 'subtitles' ? '字幕' : '视频'}下载完成！`;
+        }
+    })
+    .catch(error => {
+        console.error('下载错误:', error);
+        alert(`下载失败: ${error.message}`);
+        
+        if (progressStatus) {
+            progressStatus.textContent = `下载失败: ${error.message}`;
+        }
+    });
+}
+
+// ...existing code...
+
+// 初始化页面时添加监听器
+document.addEventListener('DOMContentLoaded', () => {
+    // ...existing code...
+
+    // 添加CSS样式以支持下载按钮容器
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        .download-buttons-container {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            margin-top: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .blue-download {
+            background-color: #0071e3;
+        }
+        
+        .blue-download:hover {
+            background-color: #0077ed;
+        }
+        
+        @media (max-width: 576px) {
+            .download-buttons-container {
+                flex-direction: column;
+            }
+        }
+    `;
+    document.head.appendChild(styleElement);
+});
+```
+
+### [voice_replace.py](vscode-remote://wsl/home/ljc/ai_voice_demo/ai_voice_server/routers/voice_replace.py)
+
+现在需要添加下载字幕文件的API端点：
+
+```python
+
+
+已进行更改。
+
+# ...existing code...
+
+@router.get("/download-subtitles/{task_id}")
+async def download_subtitles(
+    task_id: str,
+    current_user: models.User = Depends(get_current_user)
+):
+    """下载字幕文件"""
+    if task_id not in task_status:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 验证权限
+    if task_status[task_id]["user_id"] != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权访问此任务")
+    
+    task_data = task_status[task_id]
+    
+    # 验证任务是否完成
+    if task_data.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="任务尚未完成")
+    
+    # 创建字幕文件
+    task_dir = os.path.join(TEMP_DIR, task_id)
+    subtitles_path = os.path.join(task_dir, "subtitles.srt")
+    
+    try:
+        # 检查字幕文件是否已存在
+        if not os.path.exists(subtitles_path) and "segments" in task_data:
+            # 创建SRT格式的字幕文件
+            with open(subtitles_path, 'w', encoding='utf-8') as f:
+                for i, item in enumerate(task_data["segments"], 1):
+                    start_time = item['start']
+                    end_time = item['end']
+                    text = item['text']
+                    
+                    # 转换为SRT格式的时间戳
+                    start_str = convert_seconds_to_srt_time(start_time)
+                    end_str = convert_seconds_to_srt_time(end_time)
+                    
+                    f.write(f"{i}\n")
+                    f.write(f"{start_str} --> {end_str}\n")
+                    f.write(f"{text}\n\n")
+        
+        # 检查字幕文件是否存在
+        if not os.path.exists(subtitles_path):
+            raise HTTPException(status_code=404, detail="字幕文件不存在")
+        
+        # 获取原始文件名
+        original_filename = task_data.get("original_filename", "video")
+        base_name = os.path.splitext(original_filename)[0]
+        output_filename = f"{base_name}_subtitles.srt"
+        
+        return FileResponse(
+            path=subtitles_path, 
+            filename=output_filename,
+            media_type="text/plain"
+        )
+    
+    except Exception as e:
+        logger.error(f"下载字幕文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"下载字幕文件失败: {str(e)}")
+
+# ...existing code...
+
+def process_audio_synthesis(task_id: str, voice_id: str, is_preset: bool, add_subtitles: bool, user_id: int, db: Session):
+    """后台处理音频合成"""
+    task_dir = os.path.join(TEMP_DIR, task_id)
+    
+    try:
+        # ...existing code...
+        
+        # 保存字幕文件，即使不需要添加到视频中也保存，以便于单独下载
+        subtitles_file = os.path.join(task_dir, "subtitles.srt")
+        with open(subtitles_file, "w", encoding="utf-8") as f:
+            for i, item in enumerate(segments, 1):
+                start_time = item['start']
+                end_time = item['end']
+                text = item['text']
+                
+                # 转换为SRT格式的时间戳
+                start_str = convert_seconds_to_srt_time(start_time)
+                end_str = convert_seconds_to_srt_time(end_time)
+                
+                f.write(f"{i}\n")
+                f.write(f"{start_str} --> {end_str}\n")
+                f.write(f"{text}\n\n")
+        
+        # ...existing code...
+        
+    except Exception as e:
+        # ...existing code...
+```
+
+这些修改将添加下载字幕文件的功能，并确保声音置换功能正确实现。主要变更包括：
+
+1. 在main.js中修改了下载函数，支持根据类型选择下载视频或字幕
+2. 添加了适当的CSS样式以支持下载按钮容器
+3. 在服务器端添加了下载字幕文件的API端点
+4. 在音频合成过程中确保无论是否添加字幕到视频，都保存字幕文件以便单独下载
+
+这些修改完成后，用户将能够上传视频，使用预设或自定义声音替换音频，并下载处理后的视频和独立的字幕文件。
+
+已进行更改。

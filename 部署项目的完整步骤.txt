@@ -1,0 +1,228 @@
+1. 先部署官方CosyVoice项目（https://github.com/FunAudioLLM/CosyVoice）
+先进行 sudo apt update ，然后 sudo apt install build-essential 。接下来 git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git ，然后 cd CosyVoice ，然后 git submodule update --init --recursive 。
+
+2.安装Conda
+进行 cd .. ，返回 ~ 目录，使用 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh ，然后 bash ~/Miniconda3-latest-Linux-x86_64.sh ，然后 source ~/.bashrc 。
+
+3.安装项目需要的环境
+回到 ~/CosyVoice 文件夹 ，运行 conda create -n cosyvoice -y python=3.10 ，然后 conda activate cosyvoice。接着 conda install -y -c conda-forge pynini==2.1.5 ，然后 pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com ，再 sudo apt-get install sox libsox-dev 。
+
+4.下载模型文件
+
+输入 python 进入python环境：输入 from modelscope import snapshot_download 并回车 ，输入 snapshot_download('iic/CosyVoice2-0.5B', local_dir='pretrained_models/CosyVoice2-0.5B') 并回车 ，输入 snapshot_download('iic/CosyVoice-ttsfrd', local_dir='pretrained_models/CosyVoice-ttsfrd') 并回车 ，然后输入 exit(); 退出python环境。
+
+注：为了获得更好的性能应该解压缩资源并安装包。如下：
+cd pretrained_models/CosyVoice-ttsfrd/
+sudo apt install unzip
+unzip resource.zip -d .
+pip install ttsfrd_dependency-0.1-py3-none-any.whl
+pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
+
+5. 安装 mysql和nginx
+
+```
+# 安装MySQL
+sudo apt update
+sudo apt install -y mysql-server
+
+# 安装nginx
+sudo apt install -y nginx
+```
+
+6.导入之前写好的ai_voice_demo.tar.gz压缩包并解压（与CosyVoice文件夹处于同一文件夹下，即家目录）
+
+```
+cd ~
+tar -xzvf ai_voice_demo.tar.gz
+```
+
+7.进行接下来的设置
+
+```
+# 第1步：安装需要的东西并测试
+cd ~/ai_voice_demo
+conda activate cosyvoice
+pip install aiofiles fastapi uvicorn sqlalchemy pymysql python-jose[cryptography] passlib python-multipart bcrypt peft ffmpeg-python
+
+# 添加课件处理依赖（确保安装正确版本以避免兼容性问题）
+pip install --no-cache-dir python-pptx python-docx opencv-python soundfile scipy
+
+# 特别注意：安装指定版本的moviepy和相关依赖，以确保音视频同步问题得到解决
+pip install --no-cache-dir imageio==2.31.1 imageio-ffmpeg==0.4.8
+pip install --no-cache-dir moviepy==1.0.3
+
+# 检查NumPy版本，确保是1.x版本而不是2.x
+python -c "import numpy; print('NumPy版本:', numpy.__version__)"
+# 如果输出显示是2.x版本，需要降级
+if [[ $(python -c "import numpy; print(numpy.__version__.split('.')[0])") == "2" ]]; then
+    pip uninstall -y numpy
+    pip install numpy==1.26.4
+    pip install -U onnxruntime
+fi
+
+pip install --upgrade modelscope
+
+# 安装系统依赖
+sudo apt update
+sudo apt install -y tree libreoffice ffmpeg imagemagick
+tree
+systemctl status nginx
+systemctl status mysql
+
+# 配置ImageMagick允许处理PDF（默认可能被禁用）
+if [ -f /etc/ImageMagick-6/policy.xml ]; then
+    # 备份原文件
+    sudo cp /etc/ImageMagick-6/policy.xml /etc/ImageMagick-6/policy.xml.bak
+    # 修改策略允许PDF处理
+    sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml
+    echo "已配置ImageMagick允许处理PDF文件"
+fi
+
+# 第2步：部署nginx
+sudo tee /etc/nginx/sites-available/ai_voice <<EOF
+server {
+    listen 80;
+    server_name localhost;
+
+    # 增加上传文件大小限制
+    client_max_body_size 50M;
+
+    root /home/ljc/ai_voice_demo/ai_voice_web;
+    index about.html;
+
+    location / {
+        try_files \$uri \$uri/ /about.html;
+    }
+
+    location /static/ {
+        alias /home/ljc/ai_voice_demo/ai_voice_web/static/;
+    }
+
+    # API代理配置
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # 增加超时设置（增加了课件处理所需的更长时间）
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+        send_timeout 600;
+    }
+    
+    # 课件下载配置
+    location /api/courseware/download/ {
+        proxy_pass http://127.0.0.1:8000/api/courseware/download/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        
+        # 增加下载的超时设置
+        proxy_connect_timeout 300;
+        proxy_send_timeout 300;
+        proxy_read_timeout 300;
+        send_timeout 300;
+        
+        # 禁用缓冲，直接传输大文件
+        proxy_buffering off;
+    }
+}
+EOF
+
+# 第3步：部署nginx
+sudo ln -sf /etc/nginx/sites-available/ai_voice /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo chown -R ljc:www-data ~/ai_voice_demo
+sudo chmod -R 775 ~/ai_voice_demo
+sudo chmod 755 /home/ljc
+sudo chmod -R 775 ~/ai_voice_demo/ai_voice_web
+sudo nginx -t
+sudo systemctl restart nginx
+# （打开 http://localhost 查看是否可以看到登录界面）
+
+# 第4步：设置mysql
+sudo mysql
+mysql> ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'new_root_password';
+mysql> FLUSH PRIVILEGES;
+mysql> CREATE DATABASE ai_voice;
+mysql> CREATE USER 'ai_voice_user'@'localhost' IDENTIFIED BY 'ai_voice_password';
+mysql> GRANT ALL PRIVILEGES ON ai_voice.* TO 'ai_voice_user'@'localhost';
+mysql> FLUSH PRIVILEGES;
+mysql> EXIT;
+
+# 测试数据库连接
+mysql -u ai_voice_user -p'ai_voice_password' -e "SHOW DATABASES;"
+
+# 第5步：更新数据库结构
+# 创建数据库表
+python
+>>> from ai_voice_server.database import engine
+>>> from ai_voice_server.models.models import Base
+>>> Base.metadata.create_all(bind=engine)
+>>> exit();
+
+
+# 第6步：运行服务器
+chmod +x start_server.sh
+./start_server.sh
+```
+
+8.打开 http://localhost 进行用户全流程测试。第一个注册的用户自动赋予管理员权限；后面注册的用户为普通用户，如果需要管理员权限需要管理员在后台赋予权限。
+
+---
+
+注意：下面的命令是数据库中的所有数据以及所有上传的文件，然后根据模型定义重新创建表结构，最后询问是否导入预置声音
+
+```
+cd ~/ai_voice_demo
+conda activate cosyvoice
+python reset_database.py --confirm
+```
+
+---
+
+由于生成有声课件时将pptx转换为.jpg是渲染得到，排版依赖字体文件是否存在（如果没有对应字体可能会出现字重叠在一起的现象），因此最好将Windows的字体文件复制到WSL2虚拟机中。
+
+```
+使用以下命令将Windows的字体文件复制到WSL2虚拟机中：
+cp -r /mnt/c/Windows/Fonts ~/.fonts
+
+如果目标路径 ~/.fonts 不存在，可以先创建它：
+mkdir -p ~/.fonts
+cp -r /mnt/c/Windows/Fonts/* ~/.fonts
+
+更新字体缓存：
+fc-cache -fv
+
+查看已安装的字体：
+fc-list
+```
+
+---
+
+---
+
+下面是一些可能用的上的东西：
+
+1. wsl2虚拟机通过物理机的clash连接外网：
+
+先把wsl2 settings 中的网络模式修改为mirrored，打开clash for windows的开关，并且开启tun模式和允许局域网（ https://eastmonster.github.io/2022/10/05/clash-config-in-wsl/ ）。从网络拉取一个 wsl2版的ubuntu24.04，创建后使用用户 ljc ，密码 ljc050119 ，然后进入终端。输入 sudo visudo ，取消 http_proxy https_proxy 那行的注释并保存。输入 wget www.google.com, 可以发现连接成功。
+
+2. wsl2虚拟机第一次导出后再导入时会出现：
+
+第一次登陆是root账号，要切换为ljc：输入 echo -e "[user]\ndefault=ljc" | sudo tee /etc/wsl.conf 并回车
+
+然后输入 sudo nano /etc/wsl.conf 并回车，在其中添加下面2行
+
+[boot]
+systemd=true
+
+3. 使用预置声音合成时可能会出现男女声音交替出现的现象：
+
+cosyvoice2 没提供预训练音色使用，说话人嵌入和 cosyvoice1 是不一样的。所以从 cosyvoice1 复制过来的 spk2info.pt 用于 cosyvoice2 得到的音色也是有些不对的。（资料来源：https://github.com/FunAudioLLM/CosyVoice/issues/738和https://www.modelscope.cn/models/iic/CosyVoice2-0.5B/feedback/issueDetail/21187）
+
+但是现在还是使用了 https://github.com/user-attachments/files/18149385/spk2info.zip 内的 spk2info.pt 放置于 CosyVoice2-0.5B 目录下。
