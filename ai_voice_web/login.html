@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>语音合成系统 - 登录</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <!-- 全宽导航栏 -->
+    <header class="full-width-header">
+        <div class="header-container">
+            <h1>声韵智慧教育</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="login-box">
+            <h2 style="text-align: center; margin-bottom: 20px;">登录</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">用户名:</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">密码:</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <div id="loginMessage" style="color: red; margin-bottom: 15px; min-height: 20px;"></div>
+                <button type="submit" class="full-width-btn">登录</button>
+                <p style="text-align: center; margin-top: 15px;">还没有账号? <a href="register.html">立即注册</a></p>
+            </form>
+        </div>
+    </div>
+    <script src="static/js/main.js"></script>
+    <script>
+        // 添加调试代码，并确保不会重复提交
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const loginMessage = document.getElementById('loginMessage');
+
+            // 移除之前可能绑定的事件处理程序
+            const newLoginForm = loginForm.cloneNode(true);
+            loginForm.parentNode.replaceChild(newLoginForm, loginForm);
+            
+            newLoginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // 禁用按钮防止重复提交
+                const submitButton = newLoginForm.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+                submitButton.textContent = '登录中...';
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                loginMessage.textContent = '';
+
+                try {
+                    const response = await fetch('/api/token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                    });
+
+                    const data = await response.json();
+                    console.log('Response:', data); // 调试日志
+
+                    if (response.ok) {
+                        localStorage.setItem('token', data.access_token);
+                        localStorage.setItem('username', username);
+                        // 明确设置管理员状态
+                        if (data.is_admin === true) {
+                            localStorage.setItem('isAdmin', 'true');
+                        } else {
+                            localStorage.removeItem('isAdmin');
+                        }
+                        window.location.href = 'index.html';
+                    } else {
+                        loginMessage.textContent = data.detail || '登录失败';
+                        submitButton.disabled = false;
+                        submitButton.textContent = '登录';
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    loginMessage.textContent = '登录失败: ' + error.message;
+                    submitButton.disabled = false;
+                    submitButton.textContent = '登录';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

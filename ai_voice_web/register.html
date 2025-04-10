@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>语音合成系统 - 注册</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <!-- 全宽导航栏 -->
+    <header class="full-width-header">
+        <div class="header-container">
+            <h1>声韵智慧教育</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="login-box">
+            <h2 style="text-align: center; margin-bottom: 20px;">注册</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="username">用户名:</label>
+                    <input type="text" id="username" name="username" required minlength="3" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">密码:</label>
+                    <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password">
+                </div>
+                <!-- 新增身份选择下拉框 -->
+                <div class="form-group">
+                    <label for="userRole">身份选择:</label>
+                    <select id="userRole" name="user_role" required>
+                        <option value="" disabled selected>请选择您的身份</option>
+                        <option value="学生">学生</option>
+                        <option value="教师">教师</option>
+                        <option value="研究人员">研究人员</option>
+                        <option value="其他">其他</option>
+                    </select>
+                    <span class="file-hint">请选择您的身份，以便我们提供更适合您的服务</span>
+                </div>
+                <div id="message" style="color: red; margin-bottom: 15px; min-height: 20px;"></div>
+                <button type="submit" class="full-width-btn">注册</button>
+                <p style="text-align: center; margin-top: 15px;">已有账号? <a href="login.html">返回登录</a></p>
+            </form>
+        </div>
+    </div>
+    <!-- 移除main.js引用，避免重复绑定处理程序 -->
+    <!-- <script src="static/js/main.js"></script> -->
+    <!-- 为注册页增加专用的脚本 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const registerForm = document.getElementById('registerForm');
+            
+            // 阻止表单默认提交行为，只通过我们的事件处理程序提交
+            registerForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                
+                // 禁用提交按钮，防止重复提交
+                const submitButton = registerForm.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+                submitButton.textContent = '注册中...';
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const userRole = document.getElementById('userRole').value;
+                const messageDiv = document.getElementById('message');
+                
+                // 清除之前的消息
+                messageDiv.textContent = '';
+                
+                // 验证身份是否选择
+                if (!userRole) {
+                    messageDiv.textContent = '请选择您的身份';
+                    submitButton.disabled = false;
+                    submitButton.textContent = '注册';
+                    return;
+                }
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('username', username);
+                    formData.append('password', password);
+                    formData.append('user_role', userRole);
+                    
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        messageDiv.style.color = 'green';
+                        messageDiv.textContent = '注册成功！即将跳转到登录页面...';
+                        setTimeout(() => {
+                            window.location.href = 'login.html';
+                        }, 1500);
+                    } else {
+                        messageDiv.style.color = 'red';
+                        messageDiv.textContent = '注册失败: ' + (data.detail || '未知错误');
+                        submitButton.disabled = false;
+                        submitButton.textContent = '注册';
+                    }
+                } catch (error) {
+                    console.error('Registration error:', error);
+                    messageDiv.style.color = 'red';
+                    messageDiv.textContent = '注册失败: ' + error.message;
+                    submitButton.disabled = false;
+                    submitButton.textContent = '注册';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

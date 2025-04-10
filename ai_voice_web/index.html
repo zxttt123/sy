@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>语音合成系统 - 智能语音解决方案</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <meta name="description" content="高品质语音合成系统，提供专业的语音合成、课件制作解决方案">
+</head>
+<body>
+    <!-- 全宽导航栏 -->
+    <header class="full-width-header">
+        <div class="header-container">
+            <h1>声韵智慧教育</h1>
+            <div class="user-info">
+                <a href="about.html" style="text-decoration: none; margin-right: 10px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    返回首页
+                </a>
+                <span style="white-space: nowrap;">欢迎，<span id="currentUser"></span></span>
+                <div class="nav-buttons">
+                    <a href="profile.html" style="text-decoration: none; margin: 0 5px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"></path>
+                            <path d="M20.5899 22C20.5899 18.13 16.7399 15 11.9999 15C7.25991 15 3.40991 18.13 3.40991 22"></path>
+                        </svg>
+                        个人资料
+                    </a>
+                    <button onclick="logout()" style="min-width:auto; padding:8px 12px;">退出登录</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 应用介绍区域 -->
+        <div class="hero-section">
+            <h1 class="hero-title">AI智能语音合成</h1>
+            <p class="hero-subtitle">将文本转为自然、流畅、富有表现力的语音</p>
+        </div>
+
+        <!-- 功能概览区域 -->
+        <div class="feature-grid">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 18.5V19.5M8.5 10.5H15.5M12 3V11M12 11H9.5M12 11H14.5M7 16C7 17.6569 9.23858 19 12 19C14.7614 19 17 17.6569 17 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M15.5 16V10.75C15.5 9.23122 13.9932 8 12.1429 8H11.8571C10.0068 8 8.5 9.23122 8.5 10.75V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M19 14V11C19 7.13401 15.866 4 12 4V4C8.13401 4 5 7.13401 5 11V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">上传声音样本</h3>
+                <p class="feature-description">上传您的声音，让AI学习您的音色特点，创建专属语音模型</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14.875 5.58397C14.875 3.22882 12.1401 1.86395 10.3603 3.44263L3.56203 9.44886C2.29544 10.5861 2.29544 12.5144 3.56203 13.6517L10.3603 19.6579C12.1401 21.2366 14.875 19.8717 14.875 17.5166L14.875 5.58397Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M20.5 6L20.5 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">语音合成</h3>
+                <p class="feature-description">输入任意文本，用您的声音或系统预设声音快速生成自然语音</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.5 6.5L16.5 17.5M12 10.5V17.5M7.5 13.5V17.5M5.5 20.5H18.5C19.6046 20.5 20.5 19.6046 20.5 18.5V5.5C20.5 4.39543 19.6046 3.5 18.5 3.5H5.5C4.39543 3.5 3.5 4.39543 3.5 5.5V18.5C3.5 19.6046 4.39543 20.5 5.5 20.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">课件制作</h3>
+                <p class="feature-description">上传PPT或DOC文件，自动提取文本并转换为带解说的课件</p>
+            </div>
+        </div>
+
+        <!-- 快速入门指南 -->
+        <div class="quick-guide">
+            <h2>快速入门</h2>
+            <div class="steps-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>上传声音</h3>
+                        <p>录制5-10秒清晰的语音并上传，确保文本内容与录音一致</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>选择声音</h3>
+                        <p>选择您上传的声音或系统预设声音进行语音合成</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>合成语音</h3>
+                        <p>输入需要转换的文本，系统会生成自然流畅的语音</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要功能区域 -->
+        <div class="main-content">
+            <!-- 上传声音样本部分 -->
+            <section class="function-card">
+                <div class="function-header">
+                    <div class="function-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h2>上传声音样本</h2>
+                </div>
+                <div class="function-guide">
+                    <div class="guide-icon">💡</div>
+                    <div class="guide-text">上传您的声音样本，系统将学习您的声音特征。为获得最佳效果，请录制5-10秒的清晰语音，并确保输入的文本与录音内容完全一致。</div>
+                </div>
+
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="audioFile">上传音频文件：</label>
+                        <div class="file-upload-container audio-file-container">
+                            <input type="file" id="audioFile" name="audio" accept=".wav,.mp3" required>
+                            <div class="file-upload-btn">
+                                <div class="file-upload-icon">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 16.5V4.5M12 4.5L7.5 9M12 4.5L16.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M5.25 14.25V16.5C5.25 18.1569 9.06294 19.5 13.75 19.5C18.4371 19.5 22.25 18.1569 22.25 16.5V14.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M1.75 14.75C1.75 16.4069 3.1247 17.4181 3.12471 17.4181C3.4053 17.5841 3.70283 17.7264 4.01375 17.843" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <p class="file-upload-text">点击或拖拽上传音频文件</p>
+                                <p class="file-upload-hint">支持WAV或MP3格式，最大50MB，建议3-30秒的清晰录音。注意：请确保上传的音频的采样率不低于16khz。</p>
+                            </div>
+                            <div class="file-preview-container">
+                                <div class="file-preview">
+                                    <div class="file-preview-icon">
+                                        <span class="file-type-icon"></span>
+                                    </div>
+                                    <div class="file-preview-info">
+                                        <div class="file-preview-name"></div>
+                                        <div class="file-preview-meta"></div>
+                                    </div>
+                                </div>
+                                <div class="file-preview-actions">
+                                    <button type="button" class="change-file-btn">更换文件</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="promptText">音频文本内容：</label>
+                        <textarea id="promptText" name="prompt_text" required 
+                            placeholder="请输入与音频完全匹配的文字内容..."></textarea>
+                        <span class="file-hint">请输入音频中的确切内容，这有助于系统准确学习您的声音特征</span>
+                    </div>
+
+                    <div class="button-container">
+                        <button type="submit" class="primary-button">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            上传声音样本
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="tips-box">
+                    <div class="tips-header">录制建议</div>
+                    <ul class="tips-list">
+                        <li>在安静环境中录制，避免背景噪音</li>
+                        <li>使用清晰、自然的语速和语调</li>
+                        <li>文本内容要与录音完全一致</li>
+                        <li>上传成功后，您的声音将出现在"语音合成"的声音选择列表中</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 语音合成部分 -->
+            <section class="function-card">
+                <div class="function-header">
+                    <div class="function-icon blue">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14.875 5.58397C14.875 3.22882 12.1401 1.86395 10.3603 3.44263L3.56203 9.44886C2.29544 10.5861 2.29544 12.5144 3.56203 13.6517L10.3603 19.6579C12.1401 21.2366 14.875 19.8717 14.875 17.5166L14.875 5.58397Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M20.5 6L20.5 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <h2>语音合成</h2>
+                </div>
+                <div class="function-guide">
+                    <div class="guide-icon">💡</div>
+                    <div class="guide-text">选择一个声音（您上传的声音或系统预设声音），输入文本内容，点击"生成语音"按钮即可合成。</div>
+                </div>
+
+                <form id="synthesisForm">
+                    <div class="form-group">
+                        <label for="voiceId">选择声音：</label>
+                        <select id="voiceId" required>
+                            <option value="" disabled selected>请选择声音</option>
+                            <!-- 选项将通过JavaScript动态加载 -->
+                        </select>
+                        <span class="file-hint">"预设声音"为系统内置声音，"我的声音"为您上传的声音样本</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="targetText">输入文本：</label>
+                        <textarea id="targetText" required 
+                            placeholder="请输入需要转换为语音的文本..."></textarea>
+                        <span class="file-hint">支持中文、英文和标点符号，可输入任意文本内容</span>
+                    </div>
+
+                    <div class="button-container">
+                        <button type="submit" class="primary-button blue-button">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14.875 5.58397C14.875 3.22882 12.1401 1.86395 10.3603 3.44263L3.56203 9.44886C2.29544 10.5861 2.29544 12.5144 3.56203 13.6517L10.3603 19.6579C12.1401 21.2366 14.875 19.8717 14.875 17.5166L14.875 5.58397Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            生成语音
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 结果显示部分 -->
+                <div class="result-section" style="display: none;">
+                    <h3>合成结果</h3>
+                    <div class="result-box">
+                        <audio id="resultAudio" controls></audio>
+                        <button id="downloadButton" class="download-button">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            下载语音文件
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 课件制作部分 -->
+            <section class="function-card">
+                <div class="function-header">
+                    <div class="function-icon green">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16.5 6.5L16.5 17.5M12 10.5V17.5M7.5 13.5V17.5M5.5 20.5H18.5C19.6046 20.5 20.5 19.6046 20.5 18.5V5.5C20.5 4.39543 19.6046 3.5 18.5 3.5H5.5C4.39543 3.5 3.5 4.39543 3.5 5.5V18.5C3.5 19.6046 4.39543 20.5 5.5 20.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h2>课件制作</h2>
+                </div>
+                <div class="function-guide">
+                    <div class="guide-icon">💡</div>
+                    <div class="guide-text">上传PPT或DOC课件，选择解说声音，系统将自动提取文本并生成解说语音，快速制作教学课件。</div>
+                </div>
+
+                <form id="coursewareForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="coursewareFile">上传课件文件：</label>
+                        <div class="file-upload-container courseware-file-container">
+                            <input type="file" id="coursewareFile" name="courseware" accept=".ppt,.pptx,.doc,.docx" required>
+                            <div class="file-upload-btn">
+                                <div class="file-upload-icon">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 16.5V4.5M12 4.5L7.5 9M12 4.5L16.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M2.5 14.5H4.5C5.05228 14.5 5.5 14.9477 5.5 15.5V19.5C5.5 20.0523 5.05228 20.5 4.5 20.5H2.5C1.94772 20.5 1.5 20.0523 1.5 19.5V15.5C1.5 14.9477 1.94772 14.5 2.5 14.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M11 14.5H13C13.5523 14.5 14 14.9477 14 15.5V19.5C14 20.0523 13.5523 20.5 13 20.5H11C10.4477 20.5 10 20.0523 10 19.5V15.5C10 14.9477 10.4477 14.5 11 14.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M19.5 14.5H21.5C22.0523 14.5 22.5 14.9477 22.5 15.5V19.5C22.5 20.0523 22.0523 20.5 21.5 20.5H19.5C18.9477 20.5 18.5 20.0523 18.5 19.5V15.5C18.5 14.9477 18.9477 14.5 19.5 14.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <p class="file-upload-text">点击或拖拽上传课件文件</p>
+                                <p class="file-upload-hint">支持PPT、PPTX、DOC或DOCX格式，大小在0.5MB~20MB之间</p>
+                            </div>
+                            <div class="file-preview-container">
+                                <div class="file-preview">
+                                    <div class="file-preview-icon">
+                                        <span class="file-type-icon"></span>
+                                    </div>
+                                    <div class="file-preview-info">
+                                        <div class="file-preview-name"></div>
+                                        <div class="file-preview-meta"></div>
+                                    </div>
+                                </div>
+                                <div class="file-preview-actions">
+                                    <button type="button" class="change-file-btn">更换文件</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="coursewareVoiceId">选择解说声音：</label>
+                        <select id="coursewareVoiceId" required>
+                            <option value="" disabled selected>请选择声音</option>
+                            <!-- 选项将通过JavaScript动态加载 -->
+                        </select>
+                        <span class="file-hint">可选择系统预设声音或您上传的声音</span>
+                    </div>
+
+                    <div class="button-container">
+                        <button type="submit" class="primary-button green-button">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 3.5V2M12 3.5C10.067 3.5 8.5 5.067 8.5 7M12 3.5C13.933 3.5 15.5 5.067 15.5 7M15.5 7C15.5 7.94477 15.0388 8.77996 14.3318 9.29234L17.5 18H6.5L9.66822 9.29234C8.96118 8.77996 8.5 7.94477 8.5 7M15.5 7H8.5M6.5 18V19C6.5 20.1046 7.39543 21 8.5 21H15.5C16.6046 21 17.5 20.1046 17.5 19V18M6.5 18H17.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            开始处理
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 课件制作工作流程 -->
+                <div class="workflow-box">
+                    <div class="workflow-header">处理流程</div>
+                    <ol class="workflow-steps">
+                        <li><span class="highlight">文本提取</span> - 系统自动提取课件中的文本内容</li>
+                        <li><span class="highlight">语音生成</span> - 使用选定声音将文本转换为语音</li>
+                        <li><span class="highlight">视频合成</span> - 将PPT内容与语音同步，生成视频</li>
+                        <li><span class="highlight">处理时间</span> - 通常需要1-5分钟，取决于文件大小</li>
+                    </ol>
+                </div>
+
+                <!-- 进度显示 -->
+                <div id="coursewareProgressSection" style="display: none;">
+                    <h3>处理进度</h3>
+                    <div id="progressStatus" class="progress-status">准备中...</div>
+                </div>
+
+                <!-- 课件处理结果 -->
+                <div id="coursewareResult" style="display: none;">
+                    <div class="success-box">
+                        <div class="success-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3>处理完成</h3>
+                        <p>您的课件已成功处理，可以下载使用</p>
+                        <button id="downloadVideoBtn" class="download-button green-download">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            下载课件视频
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 声音置换部分 -->
+            <section class="function-card">
+                <div class="function-header">
+                    <div class="function-icon" style="background: rgba(252, 130, 27, 0.1); color: #fc821b;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16.5 16.5L21.5 12M21.5 12L16.5 7.5M21.5 12H9M13 17C13 17 9.5 17 7 17C4.5 17 2.5 15.5 2.5 12C2.5 8.5 4.5 7 7 7C9.5 7 13 7 13 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h2>声音置换与字幕生成</h2>
+                </div>
+                <div class="function-guide">
+                    <div class="guide-icon">💡</div>
+                    <div class="guide-text">上传视频文件，系统将识别其中的语音内容，然后用您选择的声音重新合成，并可选择添加字幕。</div>
+                </div>
+
+                <form id="voiceReplaceUploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="voiceReplaceVideoFile">上传视频文件：</label>
+                        <div class="file-upload-container video-file-container">
+                            <input type="file" id="voiceReplaceVideoFile" name="file" accept=".mp4,.avi,.mov,.mkv,.webm" required>
+                            <div class="file-upload-btn">
+                                <div class="file-upload-icon">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 16.5V4.5M12 4.5L7.5 9M12 4.5L16.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3.5 20.5V17.5C3.5 16.9477 3.94772 16.5 4.5 16.5H19.5C20.0523 16.5 20.5 16.9477 20.5 17.5V20.5C20.5 21.0523 20.0523 21.5 19.5 21.5H4.5C3.94772 21.5 3.5 21.0523 3.5 20.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M6.5 18.5H8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <p class="file-upload-text">点击或拖拽上传视频文件</p>
+                                <p class="file-upload-hint">支持MP4、AVI、MOV、MKV和WEBM格式，最大100MB</p>
+                            </div>
+                            <div class="file-preview-container">
+                                <div class="file-preview">
+                                    <div class="file-preview-icon">
+                                        <span class="file-type-icon"></span>
+                                    </div>
+                                    <div class="file-preview-info">
+                                        <div class="file-preview-name"></div>
+                                        <div class="file-preview-meta"></div>
+                                    </div>
+                                </div>
+                                <div class="file-preview-actions">
+                                    <button type="button" class="change-file-btn">更换文件</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="button-container">
+                        <button type="submit" class="primary-button">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            上传视频
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 进度显示区域 -->
+                <div id="voiceReplaceProgressSection" style="display: none;">
+                    <h3>处理进度</h3>
+                    <div id="voiceReplaceProgressStatus" class="progress-status">准备中...</div>
+                </div>
+
+                <!-- 分析视频音频部分 -->
+                <div id="voiceReplaceAnalyzeSection" style="display: none;">
+                    <form id="voiceReplaceAnalyzeForm">
+                        <input type="hidden" id="voiceReplaceTaskId" value="">
+                        <div class="button-container" style="margin-top: 20px;">
+                            <button type="submit" class="primary-button blue-button">
+                                <span class="button-icon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M15 15L21 21M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                开始分析
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 显示识别文本结果 -->
+                <div id="voiceReplaceTextResult" style="display: none;">
+                    <h3>识别结果</h3>
+                    <div class="form-group">
+                        <textarea id="recognizedText" placeholder="视频中的语音内容..." readonly></textarea>
+                    </div>
+                </div>
+
+                <!-- 声音合成部分 -->
+                <div id="voiceReplaceSynthesizeSection" style="display: none;">
+                    <form id="voiceReplaceSynthesizeForm">
+                        <div class="form-group">
+                            <label for="voiceReplaceVoiceId">选择替换声音：</label>
+                            <select id="voiceReplaceVoiceId" required>
+                                <option value="" disabled selected>请选择声音</option>
+                                <!-- 选项将通过JavaScript动态加载 -->
+                            </select>
+                            <span class="file-hint">"预设声音"为系统内置声音，"我的声音"为您上传的声音样本</span>
+                        </div>
+
+                        <div class="form-group">
+                            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                <input type="checkbox" id="voiceReplaceAddSubtitles" checked style="width: auto; margin-right: 10px;">
+                                <label for="voiceReplaceAddSubtitles" style="margin-bottom: 0;">为视频添加字幕</label>
+                            </div>
+                            <span class="file-hint">系统会自动添加字幕，使视频更易于理解</span>
+                        </div>
+
+                        <div class="button-container">
+                            <button type="submit" class="primary-button green-button">
+                                <span class="button-icon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M14.875 5.58397C14.875 3.22882 12.1401 1.86395 10.3603 3.44263L3.56203 9.44886C2.29544 10.5861 2.29544 12.5144 3.56203 13.6517L10.3603 19.6579C12.1401 21.2366 14.875 19.8717 14.875 17.5166L14.875 5.58397Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                开始合成
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 结果下载区域 - 修改后的版本，分开下载视频和字幕按钮 -->
+                <div id="voiceReplaceResultSection" style="display: none;">
+                    <div class="success-box">
+                        <div class="success-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3>处理完成</h3>
+                        <p>视频声音替换已完成，可以下载使用</p>
+                        <div class="download-buttons-container">
+                            <button id="voiceReplaceDownloadBtn" class="download-button green-download">
+                                <span class="button-icon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                下载处理后的视频
+                            </button>
+                            <button id="voiceReplaceDownloadSubtitlesBtn" class="download-button blue-download">
+                                <span class="button-icon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 15V3M12 3L7 8M12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                下载字幕文件
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 功能说明 -->
+                <div class="tips-box" style="margin-top: 24px;">
+                    <div class="tips-header">功能说明</div>
+                    <ul class="tips-list">
+                        <li>上传视频后，系统会自动提取音频并进行语音识别</li>
+                        <li>可选择任意声音（预设或上传的声音）替换视频中的原声</li>
+                        <li>可选择是否自动添加字幕到视频中，便于理解内容</li>
+                        <li>处理完成后可下载替换声音和添加字幕后的视频，也可单独下载字幕文件</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+        
+        <footer>
+            <p>© 2023 语音合成系统 - 智能语音解决方案</p>
+        </footer>
+    </div>
+    <script src="static/js/main.js"></script>
+</body>
+</html>

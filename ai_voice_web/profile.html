@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>语音合成系统 - 个人信息</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <style>
+        .profile-tabs {
+            display: flex;
+            gap: 5px;
+            border-bottom: 1px solid #e5e5ea;
+            margin-bottom: 20px;
+        }
+        
+        .profile-tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        
+        .profile-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .status-message {
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: var(--border-radius);
+            text-align: center;
+            display: none;
+        }
+        
+        .status-message.success {
+            background-color: rgba(42, 199, 105, 0.1);
+            color: #2ac769;
+            border: 1px solid rgba(42, 199, 105, 0.2);
+        }
+        
+        .status-message.error {
+            background-color: rgba(255, 59, 48, 0.1);
+            color: #ff3b30;
+            border: 1px solid rgba(255, 59, 48, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- 全宽导航栏 -->
+    <header class="full-width-header">
+        <div class="header-container">
+            <h1>声韵智慧教育</h1>
+            <div class="user-info">
+                欢迎，<span id="currentUser"></span>
+                <a href="index.html" style="text-decoration: none; margin: 0 15px;">返回首页</a>
+                <button onclick="logout()" style="min-width:auto; padding:8px 16px;">退出登录</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="function-card">
+            <div class="function-header">
+                <div class="function-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M20.5899 22C20.5899 18.13 16.7399 15 11.9999 15C7.25991 15 3.40991 18.13 3.40991 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h2>个人资料</h2>
+            </div>
+            
+            <div class="profile-tabs">
+                <div class="profile-tab active" data-tab="profile-info">基本信息</div>
+                <div class="profile-tab" data-tab="change-password">修改密码</div>
+            </div>
+            
+            <!-- 基本信息选项卡 -->
+            <div id="profile-info" class="tab-content active">
+                <div id="profileStatus" class="status-message"></div>
+                
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label for="profileUsername">用户名:</label>
+                        <input type="text" id="profileUsername" name="username" required disabled>
+                        <span class="file-hint">用户名不可修改</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="profileRole">身份类型:</label>
+                        <select id="profileRole" name="user_role" required>
+                            <option value="学生">学生</option>
+                            <option value="教师">教师</option>
+                            <option value="研究人员">研究人员</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="profileEmail">邮箱地址:</label>
+                        <input type="email" id="profileEmail" name="email" placeholder="请输入您的邮箱地址">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="profileOrganization">所属组织/学校:</label>
+                        <input type="text" id="profileOrganization" name="organization" placeholder="请输入您的组织或学校名称">
+                    </div>
+                    
+                    <div class="button-container">
+                        <button type="submit" class="primary-button">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            保存修改
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- 修改密码选项卡 -->
+            <div id="change-password" class="tab-content">
+                <div id="passwordStatus" class="status-message"></div>
+                
+                <form id="passwordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">当前密码:</label>
+                        <input type="password" id="currentPassword" name="current_password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newPassword">新密码:</label>
+                        <input type="password" id="newPassword" name="new_password" required minlength="6">
+                        <span class="file-hint">密码长度至少6个字符</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirmPassword">确认新密码:</label>
+                        <input type="password" id="confirmPassword" name="confirm_password" required minlength="6">
+                    </div>
+                    
+                    <div class="button-container">
+                        <button type="submit" class="primary-button">
+                            <span class="button-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            更新密码
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="static/js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查登录状态
+            checkLogin();
+            
+            // 设置当前用户名
+            const username = localStorage.getItem('username');
+            if (username) {
+                document.getElementById('currentUser').textContent = username;
+                document.getElementById('profileUsername').value = username;
+            }
+            
+            // 初始化时获取用户资料
+            fetchUserProfile();
+            
+            // 选项卡切换
+            const tabs = document.querySelectorAll('.profile-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const tabContents = document.querySelectorAll('.tab-content');
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    const targetTabId = this.getAttribute('data-tab');
+                    document.getElementById(targetTabId).classList.add('active');
+                });
+            });
+            
+            // 个人资料表单提交
+            document.getElementById('profileForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const statusDiv = document.getElementById('profileStatus');
+                statusDiv.textContent = '';
+                statusDiv.className = 'status-message';
+                statusDiv.style.display = 'none';
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('user_role', document.getElementById('profileRole').value);
+                    formData.append('email', document.getElementById('profileEmail').value);
+                    formData.append('organization', document.getElementById('profileOrganization').value);
+                    
+                    const response = await fetch('/api/users/profile', {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        statusDiv.textContent = result.message || '个人资料更新成功';
+                        statusDiv.className = 'status-message success';
+                        statusDiv.style.display = 'block';
+                    } else {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || '更新个人资料失败');
+                    }
+                } catch (error) {
+                    console.error('个人资料更新失败:', error);
+                    statusDiv.textContent = '更新失败: ' + error.message;
+                    statusDiv.className = 'status-message error';
+                    statusDiv.style.display = 'block';
+                }
+            });
+            
+            // 密码修改表单提交
+            document.getElementById('passwordForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const statusDiv = document.getElementById('passwordStatus');
+                statusDiv.textContent = '';
+                statusDiv.className = 'status-message';
+                statusDiv.style.display = 'none';
+                
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                if (newPassword !== confirmPassword) {
+                    statusDiv.textContent = '两次输入的新密码不一致';
+                    statusDiv.className = 'status-message error';
+                    statusDiv.style.display = 'block';
+                    return;
+                }
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('current_password', currentPassword);
+                    formData.append('new_password', newPassword);
+                    
+                    const response = await fetch('/api/users/change-password', {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        statusDiv.textContent = result.message || '密码修改成功';
+                        statusDiv.className = 'status-message success';
+                        statusDiv.style.display = 'block';
+                        document.getElementById('passwordForm').reset();
+                    } else {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || '密码修改失败');
+                    }
+                } catch (error) {
+                    console.error('密码修改失败:', error);
+                    statusDiv.textContent = '密码修改失败: ' + error.message;
+                    statusDiv.className = 'status-message error';
+                    statusDiv.style.display = 'block';
+                }
+            });
+        });
+        
+        // 获取用户资料
+        async function fetchUserProfile() {
+            try {
+                const response = await fetch('/api/users/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const profileData = await response.json();
+                    
+                    // 填充个人资料表单 - 匹配中文角色值
+                    if (profileData.user_role) {
+                        const roleSelect = document.getElementById('profileRole');
+                        for (let i = 0; i < roleSelect.options.length; i++) {
+                            if (roleSelect.options[i].value === profileData.user_role) {
+                                roleSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    if (profileData.email) {
+                        document.getElementById('profileEmail').value = profileData.email;
+                    }
+                    if (profileData.organization) {
+                        document.getElementById('profileOrganization').value = profileData.organization;
+                    }
+                } else {
+                    console.error('获取个人资料失败');
+                }
+            } catch (error) {
+                console.error('获取个人资料错误:', error);
+            }
+        }
+        
+        // 将fetchUserProfile函数挂载到window对象，使其在外部可调用
+        window.fetchUserProfile = fetchUserProfile;
+        
+        // 初始调用fetchUserProfile
+        fetchUserProfile();
+    </script>
+</body>
+</html>
